@@ -23,6 +23,7 @@ func main() {
 		}
 		data := make([]byte, 2048)
 		dataSize, err := conn.Read(data)
+		data = data[:dataSize]
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break

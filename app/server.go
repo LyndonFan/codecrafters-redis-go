@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -16,6 +17,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -30,6 +32,8 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
+	var buffer strings.Builder
+
 	for {
 		data, err := reader.ReadString('\n')
 		if err != nil {
@@ -38,12 +42,19 @@ func handleConnection(conn net.Conn) {
 			}
 			break
 		}
-		fmt.Println("Received: ", data)
-		if data == "*1\r\n$4\r\nPING\r\n" {
-			_, err = conn.Write([]byte("+PONG\r\n"))
-			if err != nil {
-				fmt.Println("Error writing to connection: ", err.Error())
-				break
+		buffer.WriteString(data)
+
+		if data == "\n" {
+			completeCmd := buffer.String()
+			fmt.Println("Received: ", completeCmd)
+			buffer.Reset()
+
+			if strings.Contains(completeCmd, "PING") {
+				_, err = conn.Write([]byte("+PONG\r\n"))
+				if err != nil {
+					fmt.Println("Error writing to connection: ", err.Error())
+					break
+				}
 			}
 		}
 	}

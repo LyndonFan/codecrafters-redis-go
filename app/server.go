@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -34,7 +35,7 @@ func handleConnection(conn net.Conn) {
 	var buffer strings.Builder
 
 	for {
-		data, err := reader.ReadString('\r')
+		data, err := reader.ReadString('\n')
 		if err != nil {
 			if err.Error() != "EOF" {
 				fmt.Println("Error reading from connection: ", err.Error())
@@ -43,16 +44,10 @@ func handleConnection(conn net.Conn) {
 		}
 		buffer.WriteString(data)
 
-		_, err = reader.Discard(1) // Discard the '\n' that follows '\r'
-		if err != nil {
-			fmt.Println("Error discarding from connection: ", err.Error())
-			break
-		}
-
 		completeCmd := buffer.String()
 		buffer.Reset()
 
-		if completeCmd == "PING\r" {
+		if completeCmd == "*1\r\n$4\r\nPING\r\n" {
 			_, err = conn.Write([]byte("+PONG\r\n"))
 			if err != nil {
 				fmt.Println("Error writing to connection: ", err.Error())

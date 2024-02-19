@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
-	"strings"
 )
 
 func main() {
@@ -15,28 +15,36 @@ func main() {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
+	defer listener.Close()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
-			break
+			continue
 		}
-		data := make([]byte, 2048)
-		dataSize, err := conn.Read(data)
+		go handleConnection(conn)
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	for {
+		data, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Error reading from connection: ", err.Error())
+			if err.Error() != "EOF" {
+				fmt.Println("Error reading from connection: ", err.Error())
+			}
 			break
 		}
-		fmt.Println("Received: ", string(data[:dataSize]))
-		commands := strings.Split(string(data[:dataSize]), "\n")
-		for _, command := range commands {
-			fmt.Println("Executing: ", command)
+		fmt.Println("Received: ", data)
+		if data == "*1\r\n$4\r\nPING\r\n" {
 			_, err = conn.Write([]byte("+PONG\r\n"))
 			if err != nil {
 				fmt.Println("Error writing to connection: ", err.Error())
 				break
 			}
 		}
-		conn.Close()
 	}
 }

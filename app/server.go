@@ -22,7 +22,7 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn)
+		handleConnection(conn)
 	}
 }
 
@@ -31,30 +31,34 @@ func handleConnection(conn net.Conn) {
 	buffer := make([]byte, 0, 4096)
 
 	for {
-		temp := make([]byte, 2048)
-		dataSize, err := conn.Read(temp)
+		dataSize, err := conn.Read(buffer[:cap(buffer)])
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			return
 		}
 
-		buffer = append(buffer, temp[:dataSize]...)
-		for hasFullPingCommand(buffer) {
+		buffer = buffer[:dataSize]
+		if hasFullPingCommand(buffer) {
 			fmt.Println("Executing: PING")
 			_, err = conn.Write([]byte("+PONG\r\n"))
 			if err != nil {
 				fmt.Println("Error writing to connection: ", err.Error())
 				return
 			}
-			buffer = consumePingCommand(buffer)
+			// Clear the buffer for the next command
+			buffer = buffer[:0]
 		}
 	}
 }
 
 func hasFullPingCommand(buffer []byte) bool {
-	return len(buffer) >= 7 && string(buffer[:7]) == "ping\r\n"
+	// We're considering the Redis protocol encoded PING command: *1\r\n$4\r\nPING\r\n
+	return len(buffer) >= 11 && string(buffer[:11]) == "*1\r\n$4\r\nPING\r\n"
 }
 
 func consumePingCommand(buffer []byte) []byte {
-	return buffer[7:]
+	if len(buffer) > 11 {
+		return buffer[11:]
+	}
+	return buffer[:0]
 }

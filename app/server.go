@@ -20,11 +20,21 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			break
 		}
-		_, err = conn.Write([]byte("+PONG\r\n"))
-		if err != nil {
-			fmt.Println("Error writing to connection: ", err.Error())
-			break
+
+		for {
+			buffer := make([]byte, 1024)
+			_, err := conn.Read(buffer)
+			if err != nil {
+				fmt.Println("Error reading from connection or connection closed by client: ", err.Error())
+				break
+			}
+			_, err = conn.Write([]byte("+PONG\r\n"))
+			if err != nil {
+				fmt.Println("Error writing to connection: ", err.Error())
+				break
+			}
 		}
+
 		conn.Close()
 	}
 }

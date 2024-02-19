@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
+	"io"
 )
 
 func main() {
@@ -36,35 +36,37 @@ func handleConnection(conn net.Conn) {
 		tmp := make([]byte, 256) // temporary buffer to receive data
 		n, err := conn.Read(tmp)
 		if err != nil {
-			if strings.Contains(err.Error(), "EOF") {
-				// Don't return on EOF, as the client might send multiple commands in one connection
-				break
+			if err == io.EOF {
+				// Process any remaining commands before breaking the loop
+				processCommands(buffer, conn)
+				return
 			}
 			fmt.Println("Error reading from connection:", err.Error())
 			return
 		}
 
-		if n == 0 { // no new data read, go back to reading
-			continue
-		}
-
 		buffer = append(buffer, tmp[:n]...)
 
-		for {
-			cmd, rest, found := parseCommand(buffer)
-			if !found {
-				break // not a complete command, wait for more data
-			}
-			buffer = rest // residual data could be part of the next command
-			if cmd == "PING" {
-				_, writeErr := conn.Write([]byte("+PONG\r\n"))
-				if writeErr != nil {
-					fmt.Println("Error writing to connection:", writeErr.Error())
-					return
-				}
+		processCommands(buffer, conn)
+	}
+}
+
+func processCommands(buffer []byte, conn net.Conn) []byte {
+	for {
+		cmd, rest, found := parseCommand(buffer)
+		if !found {
+			break // not a complete command, wait for more data
+		}
+		buffer = rest // residual data could be part of the next command
+		if cmd == "PING" {
+			_, writeErr := conn.Write([]byte("+PONG\r\n"))
+			if writeErr != nil {
+				fmt.Println("Error writing to connection:", writeErr.Error())
+				break
 			}
 		}
 	}
+	return buffer
 }
 
 func parseCommand(buffer []byte) (cmd string, rest []byte, found bool) {

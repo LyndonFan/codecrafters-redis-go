@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -20,10 +21,21 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			break
 		}
-		_, err = conn.Write([]byte("+PONG\r\n"))
+		data := make([]byte, 2048)
+		dataSize, err := conn.Read(data)
 		if err != nil {
-			fmt.Println("Error writing to connection: ", err.Error())
+			fmt.Println("Error reading from connection: ", err.Error())
 			break
+		}
+		fmt.Println("Received: ", string(data[:dataSize]))
+		commands := strings.Split(string(data[:dataSize]), "\n")
+		for _, command := range commands {
+			fmt.Println("Executing: ", command)
+			_, err = conn.Write([]byte("+PONG\r\n"))
+			if err != nil {
+				fmt.Println("Error writing to connection: ", err.Error())
+				break
+			}
 		}
 		conn.Close()
 	}

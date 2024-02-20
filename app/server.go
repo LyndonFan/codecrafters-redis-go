@@ -16,12 +16,15 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
-	conn, err := listener.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+
+	for { // Loop to continuously accept new connections
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			continue // Skip to the next iteration to accept a new connection
+		}
+		go handleConnection(conn) // Handle connection in a new goroutine
 	}
-	go handleConnection(conn)
 }
 
 func handleConnection(conn net.Conn) {
@@ -38,7 +41,7 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
 		}
-		fmt.Println("Received: ", data)
+		fmt.Println("Received: ", string(data))
 		_, err = conn.Write([]byte("+PONG\r\n"))
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())

@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
-	"strings"
 )
 
 func main() {
@@ -16,34 +16,29 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+	conn, err := listener.Accept()
+	if err != nil {
+		fmt.Println("Error accepting connection: ", err.Error())
+		os.Exit(1)
+	}
+	defer conn.Close()
 	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
-		}
-		data := make([]byte, 2048)
+		data := make([]byte, 1024)
 		dataSize, err := conn.Read(data)
 		data = data[:dataSize]
+		if err == io.EOF {
+			fmt.Println("End of file reached")
+			break
+		}
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
 		}
 		fmt.Println("Received: ", data)
-		fmt.Println(strings.Contains(string(data), "\n"))
-		commands := strings.Split(string(data), "\n")
-		fmt.Println("Executing: ", commands)
-		for _, command := range commands {
-			if command == "" {
-				break
-			}
-			fmt.Println("Executing: ", command)
-			_, err = conn.Write([]byte("+PONG\r\n"))
-			if err != nil {
-				fmt.Println("Error writing to connection: ", err.Error())
-				break
-			}
+		_, err = conn.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			fmt.Println("Error writing to connection: ", err.Error())
+			break
 		}
-		conn.Close()
 	}
 }

@@ -6,13 +6,19 @@ func runTokens(tokens []*Token) (*Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
-	if !isSimple[tokens[0].Type] {
+	if tokens[0].Type == arrayType {
+		newTokens := make([]*Token, len(tokens[0].NestedValue)+len(tokens)-1)
+		copy(newTokens, tokens[0].NestedValue)
+		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
+		tokens = newTokens
+	}
+	if inputEncoding[tokens[0].Type] != "simple" {
 		return nil, fmt.Errorf("expected simple input, got %s", tokens[0].Type)
 	}
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)
 	for i := 1; i < len(tokens); i++ {
-		if !isSimple[tokens[i].Type] {
+		if inputEncoding[tokens[i].Type] != "simple" {
 			return nil, fmt.Errorf("expected simple input, got %s", tokens[i].Type)
 		}
 		values[i-1] = tokens[i].SimpleValue

@@ -30,7 +30,7 @@ const (
 type Token struct {
 	Type        string
 	SimpleValue string
-	NestedValue []Token
+	NestedValue []*Token
 }
 
 var firstByteType map[byte]string = map[byte]string{
@@ -50,21 +50,21 @@ var firstByteType map[byte]string = map[byte]string{
 	'>': pushType,
 }
 
-var isSimple map[string]bool = map[string]bool{
-	simpleStringType:   true,
-	errorType:          true,
-	integerType:        true,
-	bulkStringType:     false,
-	arrayType:          false,
-	nullType:           true,
-	booleanType:        true,
-	doubleType:         true,
-	bigNumberType:      true,
-	bulkErrorType:      false,
-	verbatimStringType: true,
-	mapType:            false,
-	setType:            false,
-	pushType:           false,
+var inputEncoding map[string]string = map[string]string{
+	simpleStringType:   "simple",
+	errorType:          "simple",
+	integerType:        "simple",
+	bulkStringType:     "length-encoded",
+	arrayType:          "nested",
+	nullType:           "simple",
+	booleanType:        "simple",
+	doubleType:         "simple",
+	bigNumberType:      "simple",
+	bulkErrorType:      "length-encoded",
+	verbatimStringType: "length-encoded",
+	mapType:            "nested",
+	setType:            "nested",
+	pushType:           "nested",
 }
 
 func parseInput(input string) ([]*Token, error) {
@@ -91,14 +91,39 @@ func parseToken(read *bufio.Reader) (*Token, error) {
 	if !exists {
 		return nil, fmt.Errorf("unknown first byte: %c", firstByte)
 	}
-	if isSimple[tokenType] {
+	switch inputEncoding[tokenType] {
+	case "simple":
 		val, err := readSimple(read)
 		if err != nil {
 			return nil, err
 		}
 		return &Token{Type: tokenType, SimpleValue: val}, nil
+	case "length-encoded":
+		val, err := readLengthEncoded(read, tokenType == verbatimStringType)
+		if err != nil {
+			return nil, err
+		}
+		return &Token{Type: tokenType, SimpleValue: val}, nil
+	case "nested":
+		val, err := readNested(read, tokenType == arrayType)
+		if err != nil {
+			return nil, err
+		}
+		return &Token{Type: tokenType, NestedValue: val}, nil
+	default:
+		return nil, fmt.Errorf("not implemented parsing for type %s", tokenType)
 	}
-	return nil, fmt.Errorf("not implemented parsing for type %s", tokenType)
+}
+
+func checkNextChar(read *bufio.Reader, target byte) error {
+	nxt, err := read.ReadByte()
+	if err != nil {
+		return err
+	}
+	if nxt != target {
+		return fmt.Errorf("expected '%c', got '%c'", target, nxt)
+	}
+	return nil
 }
 
 func readSimple(read *bufio.Reader) (string, error) {
@@ -106,27 +131,19 @@ func readSimple(read *bufio.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	nxt, err := read.ReadByte()
-	if err != nil {
+	if err = checkNextChar(read, '\n'); err != nil {
 		return "", err
-	}
-	if nxt != '\n' {
-		return "", fmt.Errorf("expected '\\n', got '%c'", nxt)
 	}
 	return val[:len(val)-1], nil
 }
 
-func readLengthEncoded(read *bufio.Reader) (string, error) {
+func readLengthEncoded(read *bufio.Reader, isVerbatimString bool) (string, error) {
 	lengthString, err := read.ReadString('\r')
 	if err != nil {
 		return "", err
 	}
-	nxt, err := read.ReadByte()
-	if err != nil {
+	if err = checkNextChar(read, '\n'); err != nil {
 		return "", err
-	}
-	if nxt != '\n' {
-		return "", fmt.Errorf("expected '\\n', got '%c'", nxt)
 	}
 	length, err := strconv.Atoi(lengthString[:len(lengthString)-1])
 	if err != nil {
@@ -135,16 +152,47 @@ func readLengthEncoded(read *bufio.Reader) (string, error) {
 	if length < 0 {
 		return "", fmt.Errorf("invalid length: %d", length)
 	}
+	if isVerbatimString {
+		length += 4 // 3 bytes for encoding, plus 1 for ':'
+	}
 	var buf []byte = make([]byte, length)
 	if _, err = io.ReadFull(read, buf); err != nil {
 		return "", err
 	}
-	nxt, err = read.ReadByte()
-	if err != nil {
+	if err = checkNextChar(read, '\r'); err != nil {
 		return "", err
 	}
-	if nxt != '\n' {
-		return "", fmt.Errorf("expected '\\n', got '%c'", nxt)
+	if err = checkNextChar(read, '\n'); err != nil {
+		return "", err
 	}
 	return string(buf), nil
+}
+
+func readNested(read *bufio.Reader, isMap bool) ([]*Token, error) {
+	lengthString, err := read.ReadString('\r')
+	if err != nil {
+		return nil, err
+	}
+	if err = checkNextChar(read, '\n'); err != nil {
+		return nil, err
+	}
+	length, err := strconv.Atoi(lengthString[:len(lengthString)-1])
+	if err != nil {
+		return nil, err
+	}
+	if length < 0 {
+		return nil, fmt.Errorf("invalid length: %d", length)
+	}
+	if isMap {
+		length *= 2 // tokens encoded as [key1, value1, key2, value2, ...]
+	}
+	tokens := make([]*Token, 0, length)
+	for _, err := read.Peek(1); err == nil; _, err = read.Peek(1) {
+		token, err := parseToken(read)
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens, nil
 }

@@ -41,7 +41,22 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 		fmt.Println("Received: ", data)
-		_, err = conn.Write([]byte("+PONG\r\n"))
+
+		// process data
+		tokens, err := parseInput(string(data))
+		if err != nil {
+			fmt.Println("Error parsing input: ", err.Error())
+			break
+		}
+		response, err := runTokens(tokens)
+		if err != nil {
+			fmt.Println("Error running tokens: ", err.Error())
+			break
+		}
+		fmt.Println("Response: ", response.SimpleValue)
+
+		// send response
+		_, err = conn.Write([]byte("+" + response.SimpleValue + "\r\n"))
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
 			break

@@ -6,14 +6,14 @@ func runTokens(tokens []*Token) (*Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
-	if tokens[0].Type == arrayType {
+	for tokens[0].Type == arrayType {
 		newTokens := make([]*Token, len(tokens[0].NestedValue)+len(tokens)-1)
 		copy(newTokens, tokens[0].NestedValue)
 		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
 		tokens = newTokens
 	}
-	if inputEncoding[tokens[0].Type] != "simple" {
-		return nil, fmt.Errorf("expected simple input, got %s", tokens[0].Type)
+	if inputEncoding[tokens[0].Type] == "nested" {
+		return nil, fmt.Errorf("can't parse nested input of type %s", tokens[0].Type)
 	}
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)

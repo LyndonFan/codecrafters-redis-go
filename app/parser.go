@@ -18,8 +18,8 @@ func runTokens(tokens []*Token) (*Token, error) {
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)
 	for i := 1; i < len(tokens); i++ {
-		if inputEncoding[tokens[i].Type] != "simple" {
-			return nil, fmt.Errorf("expected simple input, got %s", tokens[i].Type)
+		if inputEncoding[tokens[i].Type] == "nested" {
+			return nil, fmt.Errorf("can't parse nested input of type %s", tokens[i].Type)
 		}
 		values[i-1] = tokens[i].SimpleValue
 	}

@@ -50,21 +50,27 @@ var firstByteType map[byte]string = map[byte]string{
 	'>': pushType,
 }
 
+const (
+	SimpleEncoding string = "simple"
+	LengthEncoding string = "length-encoded"
+	NestedEncoding string = "nested"
+)
+
 var inputEncoding map[string]string = map[string]string{
-	simpleStringType:   "simple",
-	errorType:          "simple",
-	integerType:        "simple",
-	bulkStringType:     "length-encoded",
-	arrayType:          "nested",
-	nullType:           "simple",
-	booleanType:        "simple",
-	doubleType:         "simple",
-	bigNumberType:      "simple",
-	bulkErrorType:      "length-encoded",
-	verbatimStringType: "length-encoded",
-	mapType:            "nested",
-	setType:            "nested",
-	pushType:           "nested",
+	simpleStringType:   SimpleEncoding,
+	errorType:          SimpleEncoding,
+	integerType:        SimpleEncoding,
+	bulkStringType:     LengthEncoding,
+	arrayType:          NestedEncoding,
+	nullType:           SimpleEncoding,
+	booleanType:        SimpleEncoding,
+	doubleType:         SimpleEncoding,
+	bigNumberType:      SimpleEncoding,
+	bulkErrorType:      LengthEncoding,
+	verbatimStringType: LengthEncoding,
+	mapType:            NestedEncoding,
+	setType:            NestedEncoding,
+	pushType:           NestedEncoding,
 }
 
 func parseInput(input string) ([]*Token, error) {
@@ -92,19 +98,19 @@ func parseToken(read *bufio.Reader) (*Token, error) {
 		return nil, fmt.Errorf("unknown first byte: %c", firstByte)
 	}
 	switch inputEncoding[tokenType] {
-	case "simple":
+	case SimpleEncoding:
 		val, err := readSimple(read)
 		if err != nil {
 			return nil, err
 		}
 		return &Token{Type: tokenType, SimpleValue: val}, nil
-	case "length-encoded":
+	case LengthEncoding:
 		val, err := readLengthEncoded(read, tokenType == verbatimStringType)
 		if err != nil {
 			return nil, err
 		}
 		return &Token{Type: tokenType, SimpleValue: val}, nil
-	case "nested":
+	case NestedEncoding:
 		val, err := readNested(read, tokenType == arrayType)
 		if err != nil {
 			return nil, err

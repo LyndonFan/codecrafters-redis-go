@@ -9,28 +9,26 @@ import (
 func runCommand(commandName string, args []any) (string, error) {
 	switch strings.ToLower(commandName) {
 	case "ping":
-		command := ping{}
-		return command.execute(args)
+		return ping(args)
 	case "echo":
-		command := echo{}
-		return command.execute(args)
+		return echo(args)
+	case "set":
+		return cache.Set(args)
+	case "get":
+		return cache.Get(args)
 	default:
 		return "", fmt.Errorf("unknown command: %s", commandName)
 	}
 }
 
-type ping struct{}
-
-func (p *ping) execute(args []any) (string, error) {
+func ping(args []any) (string, error) {
 	if len(args) > 0 {
 		return "", fmt.Errorf("unexpected arguments: %v", args)
 	}
 	return "PONG", nil
 }
 
-type echo struct{}
-
-func (e *echo) execute(args []any) (string, error) {
+func echo(args []any) (string, error) {
 	if len(args) != 1 {
 		return "", fmt.Errorf("expected 1 argument, got %d", len(args))
 	}
@@ -40,23 +38,61 @@ func (e *echo) execute(args []any) (string, error) {
 type Entry struct {
 	Value       any
 	TimeCreated time.Time
+	ExpiresAt   time.Time
 }
 
-var cache = make(map[string]*Entry)
+type Cache map[string]*Entry
 
-type set struct{}
+var cache = Cache{}
 
-func (s *set) execute(args []any) (string, error) {
-	if len(args) != 2 {
-		return "", fmt.Errorf("expected 2 arguments, got %d", len(args))
+func (c *Cache) Set(args []any) (string, error) {
+	key, expiresAt := "", time.Time{}
+	var value any
+	if len(args) != 2 && len(args) != 4 {
+		return "", fmt.Errorf("expected 2 or 4 arguments, got %d", len(args))
 	}
-	key, ok := args[0].(string)
+	var ok bool
+	key, ok = args[0].(string)
 	if !ok {
-		return "", fmt.Errorf("expected string as first argument, got %T", args[0])
+		return "", fmt.Errorf("unable to process key: %v", args[0])
 	}
-	cache[args[0].(string)] = &Entry{
-		Value:       args[1],
-		TimeCreated: time.Now(),
+	value = args[1]
+	now := time.Now()
+	if len(args) == 4 {
+		cmd, ok := args[2].(string)
+		if !ok {
+			return "", fmt.Errorf("unable to process command: %v", args[2])
+		}
+		duration, ok := args[3].(int64)
+		if !ok {
+			return "", fmt.Errorf("unable to process duration: %v", args[3])
+		}
+		switch strings.ToLower(cmd) {
+		case "ex":
+			expiresAt = now.Add(time.Duration(duration) * time.Second)
+		case "px":
+			expiresAt = now.Add(time.Duration(duration) * time.Millisecond)
+		default:
+			return "", fmt.Errorf("unknown unit %s, should be EX or PX", cmd)
+		}
+	}
+	cache[key] = &Entry{
+		Value:       value,
+		TimeCreated: now,
+		ExpiresAt:   expiresAt,
 	}
 	return "OK", nil
+}
+
+var NotFoundError error = fmt.Errorf("not found")
+
+func (c Cache) Get(args []any) (string, error) {
+	if len(args) != 1 {
+		return "", fmt.Errorf("expected 1 argument, got %d", len(args))
+	}
+	entry, found := c[args[0].(string)]
+	if !found || entry.ExpiresAt.Before(time.Now()) {
+		return "", NotFoundError
+	}
+	return fmt.Sprintf("%v", entry.Value), nil
 }

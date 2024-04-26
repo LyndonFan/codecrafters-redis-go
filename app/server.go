@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-var port int = 6379
+var port int
 
 func init() {
 	flag.IntVar(&port, "port", 6379, "port to listen to")
+	flag.Parse()
 }
 
 func main() {

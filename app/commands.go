@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -63,8 +64,13 @@ func (c *Cache) Set(args []any) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("unable to process command: %v", args[2])
 		}
-		duration, ok := args[3].(int64)
-		if !ok {
+		var duration int64
+		durationString, ok := args[3].(string)
+		var err error
+		if ok {
+			duration, err = strconv.ParseInt(durationString, 10, 64)
+		}
+		if !ok || err != nil {
 			return "", fmt.Errorf("unable to process duration: %v", args[3])
 		}
 		switch strings.ToLower(cmd) {

@@ -90,8 +90,14 @@ func (c Cache) Get(args []any) (string, error) {
 	if len(args) != 1 {
 		return "", fmt.Errorf("expected 1 argument, got %d", len(args))
 	}
-	entry, found := c[args[0].(string)]
-	if !found || entry.ExpiresAt.Before(time.Now()) {
+	key, ok := args[0].(string)
+	if !ok {
+		return "", fmt.Errorf("unable to process key: %v", args[0])
+	}
+	entry, found := c[key]
+	fmt.Println("key:", key)
+	fmt.Println("cache:", c)
+	if !found || (entry.ExpiresAt.Before(time.Now()) && entry.ExpiresAt != time.Time{}) {
 		return "", ErrNotFound
 	}
 	return fmt.Sprintf("%v", entry.Value), nil

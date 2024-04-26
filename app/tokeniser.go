@@ -8,71 +8,6 @@ import (
 	"strings"
 )
 
-// terminator string = "\r\n"
-
-const (
-	simpleStringType   string = "simple-string"
-	errorType          string = "error"
-	integerType        string = "integer"
-	bulkStringType     string = "bulk-string"
-	arrayType          string = "array"
-	nullType           string = "null"
-	booleanType        string = "boolean"
-	doubleType         string = "double"
-	bigNumberType      string = "big-number"
-	mapType            string = "map"
-	setType            string = "set"
-	pushType           string = "push"
-	bulkErrorType      string = "bulk-error"
-	verbatimStringType string = "verbatim-string"
-)
-
-type Token struct {
-	Type        string
-	SimpleValue string
-	NestedValue []*Token
-}
-
-var firstByteType map[byte]string = map[byte]string{
-	'+': simpleStringType,
-	'-': errorType,
-	':': integerType,
-	'$': bulkStringType,
-	'*': arrayType,
-	'_': nullType,
-	'#': booleanType,
-	',': doubleType,
-	'(': bigNumberType,
-	'!': bulkErrorType,
-	'=': verbatimStringType,
-	'%': mapType,
-	'~': setType,
-	'>': pushType,
-}
-
-const (
-	SimpleEncoding string = "simple"
-	LengthEncoding string = "length-encoded"
-	NestedEncoding string = "nested"
-)
-
-var inputEncoding map[string]string = map[string]string{
-	simpleStringType:   SimpleEncoding,
-	errorType:          SimpleEncoding,
-	integerType:        SimpleEncoding,
-	bulkStringType:     LengthEncoding,
-	arrayType:          NestedEncoding,
-	nullType:           SimpleEncoding,
-	booleanType:        SimpleEncoding,
-	doubleType:         SimpleEncoding,
-	bigNumberType:      SimpleEncoding,
-	bulkErrorType:      LengthEncoding,
-	verbatimStringType: LengthEncoding,
-	mapType:            NestedEncoding,
-	setType:            NestedEncoding,
-	pushType:           NestedEncoding,
-}
-
 func parseInput(input string) ([]*Token, error) {
 	reader := bufio.NewReader(strings.NewReader(input))
 	tokens := make([]*Token, 0, 100)
@@ -97,7 +32,7 @@ func parseToken(read *bufio.Reader) (*Token, error) {
 	if !exists {
 		return nil, fmt.Errorf("unknown first byte: %c", firstByte)
 	}
-	switch inputEncoding[tokenType] {
+	switch valueEncoding[tokenType] {
 	case SimpleEncoding:
 		val, err := readSimple(read)
 		if err != nil {

@@ -12,18 +12,21 @@ func runTokens(tokens []*Token) (*Token, error) {
 		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
 		tokens = newTokens
 	}
-	if inputEncoding[tokens[0].Type] == "nested" {
+	if valueEncoding[tokens[0].Type] == "nested" {
 		return nil, fmt.Errorf("can't parse nested input of type %s", tokens[0].Type)
 	}
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)
 	for i := 1; i < len(tokens); i++ {
-		if inputEncoding[tokens[i].Type] == "nested" {
+		if valueEncoding[tokens[i].Type] == "nested" {
 			return nil, fmt.Errorf("can't parse nested input of type %s", tokens[i].Type)
 		}
 		values[i-1] = tokens[i].SimpleValue
 	}
 	res, err := runCommand(command, values)
+	if err == ErrNotFound {
+		return &Token{Type: nullType}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,7 @@ func runTokens(tokens []*Token) (*Token, error) {
 	}
 	res, err := runCommand(command, values)
 	if err == ErrNotFound {
-		return &Token{Type: bulkStringType}, nil
+		return &Token{Type: bulkStringType, representNull: true}, nil
 	}
 	if err != nil {
 		return nil, err

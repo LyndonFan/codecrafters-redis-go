@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -53,7 +54,7 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error running tokens: ", err.Error())
 			break
 		}
-		fmt.Println("Response: ", response.Value())
+		fmt.Println("Response: ", strings.Replace(response.Value(), TERMINATOR, "\\r\\n", -1))
 
 		// send response
 		_, err = conn.Write([]byte(response.Value()))

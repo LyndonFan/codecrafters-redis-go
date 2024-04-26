@@ -53,10 +53,10 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error running tokens: ", err.Error())
 			break
 		}
-		fmt.Println("Response: ", response.SimpleValue)
+		fmt.Println("Response: ", response.Value())
 
 		// send response
-		_, err = conn.Write([]byte("+" + response.SimpleValue + "\r\n"))
+		_, err = conn.Write([]byte(response.Value()))
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
 			break

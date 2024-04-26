@@ -84,7 +84,7 @@ func (c *Cache) Set(args []any) (string, error) {
 	return "OK", nil
 }
 
-var NotFoundError error = fmt.Errorf("not found")
+var ErrNotFound error = fmt.Errorf("not found")
 
 func (c Cache) Get(args []any) (string, error) {
 	if len(args) != 1 {
@@ -92,7 +92,7 @@ func (c Cache) Get(args []any) (string, error) {
 	}
 	entry, found := c[args[0].(string)]
 	if !found || entry.ExpiresAt.Before(time.Now()) {
-		return "", NotFoundError
+		return "", ErrNotFound
 	}
 	return fmt.Sprintf("%v", entry.Value), nil
 }

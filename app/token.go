@@ -20,9 +20,10 @@ const (
 )
 
 type Token struct {
-	Type        string
-	SimpleValue string
-	NestedValue []*Token
+	Type          string
+	SimpleValue   string
+	NestedValue   []*Token
+	representNull bool // only for null bulk strings and null bulk arrays
 }
 
 var firstByteType map[byte]string = map[byte]string{

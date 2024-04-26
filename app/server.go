@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -8,12 +9,18 @@ import (
 	"strings"
 )
 
+var port int = 6379
+
+func init() {
+	flag.IntVar(&port, "port", 6379, "port to listen to")
+}
+
 func main() {
 	fmt.Println("Logs from your program will appear here!")
 
-	listener, err := net.Listen("tcp", "0.0.0.0:6379")
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Printf("Failed to bind to port %d\n", port)
 		os.Exit(1)
 	}
 	defer listener.Close()

@@ -6,6 +6,7 @@ import (
 )
 
 func runCommand(commandName string, args []any) (*Token, error) {
+	fmt.Println(commandName, args)
 	switch strings.ToLower(commandName) {
 	case "ping":
 		return ping(args)
@@ -52,5 +53,9 @@ func info(args []any) (*Token, error) {
 	if len(args) > 1 {
 		return nil, fmt.Errorf("unexpected arguments: %v", args)
 	}
-	return &Token{Type: bulkStringType, SimpleValue: "role:master"}, nil
+	roleString := "slave"
+	if replicationInfo.IsMaster() {
+		roleString = "master"
+	}
+	return &Token{Type: bulkStringType, SimpleValue: fmt.Sprintf("role:%s", roleString)}, nil
 }

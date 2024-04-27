@@ -24,11 +24,5 @@ func runTokens(tokens []*Token) (*Token, error) {
 		values[i-1] = tokens[i].SimpleValue
 	}
 	res, err := runCommand(command, values)
-	if err == ErrNotFound {
-		return &Token{Type: bulkStringType, representNull: true}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &Token{Type: simpleStringType, SimpleValue: res}, nil
+	return res, err
 }

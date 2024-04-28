@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func parseInput(input string) ([]*Token, error) {
+func ParseInput(input string) ([]*Token, error) {
 	reader := bufio.NewReader(strings.NewReader(input))
 	tokens := make([]*Token, 0, 100)
 	for _, err := reader.Peek(1); err == nil; _, err = reader.Peek(1) {

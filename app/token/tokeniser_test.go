@@ -31,7 +31,7 @@ func TestReadSimple_InvalidInput(t *testing.T) {
 
 func TestParseInput_ValidSimpleInput(t *testing.T) {
 	input := "+hello world\r\n"
-	tokens, err := parseInput(input)
+	tokens, err := ParseInput(input)
 	expectedTokens := []*Token{{simpleStringType, "hello world", nil}}
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)

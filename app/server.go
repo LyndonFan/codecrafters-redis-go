@@ -85,7 +85,7 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Received: ", data)
 
 		// process data
-		tokens, err := parseInput(string(data))
+		tokens, err := ParseInput(string(data))
 		if err != nil {
 			fmt.Println("Error parsing input: ", err.Error())
 			break
@@ -94,10 +94,10 @@ func handleConnection(conn net.Conn) {
 		if err != nil {
 			response = &Token{Type: errorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
 		}
-		fmt.Println("Response: ", strings.Replace(response.Value(), TERMINATOR, "\\r\\n", -1))
+		fmt.Println("Response: ", strings.Replace(response.EncodedString(), TERMINATOR, "\\r\\n", -1))
 
 		// send response
-		_, err = conn.Write([]byte(response.Value()))
+		_, err = conn.Write([]byte(response.EncodedString()))
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
 			break

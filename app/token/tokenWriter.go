@@ -2,7 +2,7 @@ package main
 
 import "strconv"
 
-func (t *Token) Value() string {
+func (t *Token) EncodedString() string {
 	switch valueEncoding[t.Type] {
 	case SimpleEncoding:
 		return simpleEncode(t)
@@ -43,7 +43,7 @@ func nestedEncode(t *Token) string {
 	}
 	res += strconv.Itoa(n) + TERMINATOR
 	for _, token := range t.NestedValue {
-		res += token.Value() + TERMINATOR
+		res += token.EncodedString() + TERMINATOR
 	}
 	return res
 }

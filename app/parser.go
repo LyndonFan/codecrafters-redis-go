@@ -1,13 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"go/token"
 
-func runTokens(tokens []*Token) (*Token, error) {
+	"github.com/codecrafters-io/redis-starter-go/app/token"
+)
+
+func runTokens(tokens []*token.Token) (*token.Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
 	for tokens[0].Type == arrayType {
-		newTokens := make([]*Token, len(tokens[0].NestedValue)+len(tokens)-1)
+		newTokens := make([]token.Token, len(tokens[0].NestedValue)+len(tokens)-1)
 		copy(newTokens, tokens[0].NestedValue)
 		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
 		tokens = newTokens

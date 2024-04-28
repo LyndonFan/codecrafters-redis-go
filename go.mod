@@ -11,3 +11,5 @@ module github.com/codecrafters-io/redis-starter-go
 go 1.19
 
 replace github.com/codecrafters-io/redis-starter-go/app/token => ./app/token
+
+require github.com/codecrafters-io/redis-starter-go/app/token v0.0.0-00010101000000-000000000000

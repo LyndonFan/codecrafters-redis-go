@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
-	"go/token"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token" token
+	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 func runTokens(tokens []*token.Token) (*token.Token, error) {
@@ -12,7 +11,7 @@ func runTokens(tokens []*token.Token) (*token.Token, error) {
 		return nil, fmt.Errorf("empty input")
 	}
 	for tokens[0].Type == token.ArrayType {
-		newTokens := make([]token.Token, len(tokens[0].NestedValue)+len(tokens)-1)
+		newTokens := make([]*token.Token, len(tokens[0].NestedValue)+len(tokens)-1)
 		copy(newTokens, tokens[0].NestedValue)
 		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
 		tokens = newTokens
@@ -23,7 +22,7 @@ func runTokens(tokens []*token.Token) (*token.Token, error) {
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)
 	for i := 1; i < len(tokens); i++ {
-		if valueEncoding[tokens[i].Type] == "nested" {
+		if token.ValueEncoding[tokens[i].Type] == "nested" {
 			return nil, fmt.Errorf("can't parse nested input of type %s", tokens[i].Type)
 		}
 		values[i-1] = tokens[i].SimpleValue

@@ -1,9 +1,9 @@
-package main
+package token
 
 import "strconv"
 
 func (t *Token) EncodedString() string {
-	switch valueEncoding[t.Type] {
+	switch ValueEncoding[t.Type] {
 	case SimpleEncoding:
 		return simpleEncode(t)
 	case LengthEncoding:

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token" token
+	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 var port int
@@ -87,16 +87,16 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Received: ", data)
 
 		// process data
-		tokens, err := ParseInput(string(data))
+		tokens, err := token.ParseInput(string(data))
 		if err != nil {
 			fmt.Println("Error parsing input: ", err.Error())
 			break
 		}
 		response, err := runTokens(tokens)
 		if err != nil {
-			response = &token.Token{Type: errorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
+			response = &token.Token{Type: token.ErrorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
 		}
-		fmt.Println("Response: ", strings.Replace(response.EncodedString(), TERMINATOR, "\\r\\n", -1))
+		fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
 
 		// send response
 		_, err = conn.Write([]byte(response.EncodedString()))

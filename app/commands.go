@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token" token
+	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 func runCommand(commandName string, args []any) (*token.Token, error) {
@@ -21,16 +21,16 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &token.Token{Type: simpleStringType, SimpleValue: res}, nil
+		return &token.Token{Type: token.SimpleStringType, SimpleValue: res}, nil
 	case "get":
 		res, err := cache.Get(args)
 		if err == ErrNotFound {
-			return &Token{Type: bulkStringType, representNull: true}, nil
+			return &token.NullBulkString, nil
 		}
 		if err != nil {
 			return nil, err
 		}
-		return &token.Token{Type: simpleStringType, SimpleValue: res}, nil
+		return &token.Token{Type: token.SimpleStringType, SimpleValue: res}, nil
 	default:
 		return nil, fmt.Errorf("unknown command: %s", commandName)
 	}
@@ -40,7 +40,7 @@ func ping(args []any) (*token.Token, error) {
 	if len(args) > 0 {
 		return nil, fmt.Errorf("unexpected arguments: %v", args)
 	}
-	return &token.Token{Type: simpleStringType, SimpleValue: "PONG"}, nil
+	return &token.Token{Type: token.SimpleStringType, SimpleValue: "PONG"}, nil
 }
 
 func echo(args []any) (*token.Token, error) {
@@ -48,7 +48,7 @@ func echo(args []any) (*token.Token, error) {
 		return nil, fmt.Errorf("expected 1 argument, got %d", len(args))
 	}
 	value := fmt.Sprintf("%s", args[0])
-	return &token.Token{Type: simpleStringType, SimpleValue: value}, nil
+	return &token.Token{Type: token.SimpleStringType, SimpleValue: value}, nil
 }
 
 func info(args []any) (*token.Token, error) {
@@ -59,5 +59,5 @@ func info(args []any) (*token.Token, error) {
 	if replicationInfo.IsMaster() {
 		roleString = "master"
 	}
-	return &token.Token{Type: bulkStringType, SimpleValue: fmt.Sprintf("role:%s", roleString)}, nil
+	return &token.Token{Type: token.BulkStringType, SimpleValue: fmt.Sprintf("role:%s", roleString)}, nil
 }

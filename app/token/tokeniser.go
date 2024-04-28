@@ -1,4 +1,4 @@
-package main
+package token
 
 import (
 	"bufio"
@@ -11,12 +11,14 @@ import (
 func ParseInput(input string) ([]*Token, error) {
 	reader := bufio.NewReader(strings.NewReader(input))
 	tokens := make([]*Token, 0, 100)
-	for _, err := reader.Peek(1); err == nil; _, err = reader.Peek(1) {
+	_, peekErr := reader.Peek(1)
+	for peekErr == nil {
 		token, err := parseToken(reader)
 		if err != nil {
 			return nil, err
 		}
 		tokens = append(tokens, token)
+		_, peekErr = reader.Peek(1)
 	}
 	return tokens, nil
 }
@@ -32,7 +34,7 @@ func parseToken(read *bufio.Reader) (*Token, error) {
 	if !exists {
 		return nil, fmt.Errorf("unknown first byte: %c", firstByte)
 	}
-	switch valueEncoding[tknType] {
+	switch ValueEncoding[tknType] {
 	case SimpleEncoding:
 		val, err := readSimple(read)
 		if err != nil {
@@ -128,12 +130,14 @@ func readNested(read *bufio.Reader, isMap bool) ([]*Token, error) {
 		length *= 2 // tokens encoded as [key1, value1, key2, value2, ...]
 	}
 	tokens := make([]*Token, 0, length)
-	for _, err := read.Peek(1); err == nil; _, err = read.Peek(1) {
+	_, peekErr := read.Peek(1)
+	for peekErr == nil {
 		token, err := parseToken(read)
 		if err != nil {
 			return nil, err
 		}
 		tokens = append(tokens, token)
+		_, peekErr = read.Peek(1)
 	}
 	return tokens, nil
 }

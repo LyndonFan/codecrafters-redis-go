@@ -1,4 +1,4 @@
-package main
+package token
 
 const TERMINATOR string = "\r\n"
 
@@ -74,7 +74,7 @@ const (
 	NestedEncoding TokenEncoding = "nested"
 )
 
-var valueEncoding map[TokenType]TokenEncoding = map[TokenType]TokenEncoding{
+var ValueEncoding map[TokenType]TokenEncoding = map[TokenType]TokenEncoding{
 	SimpleStringType:   SimpleEncoding,
 	ErrorType:          SimpleEncoding,
 	IntegerType:        SimpleEncoding,
@@ -91,4 +91,4 @@ var valueEncoding map[TokenType]TokenEncoding = map[TokenType]TokenEncoding{
 	PushType:           NestedEncoding,
 }
 
-var NullBulkString Token = Token{Type: BulkStringType, SimpleValue: ""}
+var NullBulkString Token = Token{Type: BulkStringType, SimpleValue: "", representNull: true}

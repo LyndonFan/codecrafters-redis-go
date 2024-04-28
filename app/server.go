@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/replication"
-	"github.com/codecrafters-io/redis-starter-go/token"
+	"github.com/codecrafters-io/redis-starter-go/app/replication"
+	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 var port int

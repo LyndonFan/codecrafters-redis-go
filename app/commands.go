@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/token"
+	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 func runCommand(commandName string, args []any) (*token.Token, error) {

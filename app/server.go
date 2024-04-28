@@ -24,20 +24,18 @@ func init() {
 	remainingArgs := flag.Args()
 	var err error
 	if len(remainingArgs) == 0 {
-		repl, err = replication.GetReplicator("", "")
+		repl, err = replication.GetReplicator(port, "", "")
 	} else if replHost != "" {
-		repl, err = replication.GetReplicator(replHost, remainingArgs[0])
+		repl, err = replication.GetReplicator(port, replHost, remainingArgs[0])
 	}
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	if !repl.IsMaster() {
-		err = repl.HandshakeWithMaster()
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+	err = repl.HandshakeWithMaster()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 

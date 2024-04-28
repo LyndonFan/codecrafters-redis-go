@@ -7,8 +7,9 @@ import (
 )
 
 type Replicator struct {
-	Host             string
 	Port             int
+	MasterHost       string
+	MasterPort       int
 	MasterRepliID    string
 	MasterReplOffset int
 }
@@ -17,16 +18,16 @@ func (r Replicator) String() string {
 	if r.IsMaster() {
 		return fmt.Sprintf("{master, %s..., %d}", r.MasterRepliID[:6], r.MasterReplOffset)
 	}
-	return fmt.Sprintf("{%s:%d, %s..., %d}", r.Host, r.Port, r.MasterRepliID[:6], r.MasterReplOffset)
+	return fmt.Sprintf("{%s:%d, %s..., %d}", r.MasterHost, r.MasterPort, r.MasterRepliID[:6], r.MasterReplOffset)
 }
 
 func (r Replicator) IsMaster() bool {
-	return r.Host == "" && r.Port == 0
+	return r.MasterHost == "" && r.MasterPort == 0
 }
 
 func (r Replicator) MasterAddress() string {
 	if !r.IsMaster() {
-		return fmt.Sprintf("%s:%d", r.Host, r.Port)
+		return fmt.Sprintf("%s:%d", r.MasterHost, r.MasterPort)
 	}
 	return ""
 }
@@ -43,18 +44,19 @@ func (r Replicator) InfoMap() map[string]string {
 	}
 }
 
-func GetReplicator(host, portString string) (*Replicator, error) {
+func GetReplicator(port int, masterHost, masterPort string) (*Replicator, error) {
 	id := randomID()
-	if host == "" && portString == "" {
-		return &Replicator{MasterRepliID: id}, nil
+	if masterHost == "" && masterPort == "" {
+		return &Replicator{Port: port, MasterRepliID: id}, nil
 	}
-	port, err := strconv.Atoi(portString)
+	port, err := strconv.Atoi(masterPort)
 	if err != nil {
 		return nil, err
 	}
 	return &Replicator{
-		Host:             host,
 		Port:             port,
+		MasterHost:       masterHost,
+		MasterPort:       port,
 		MasterRepliID:    id,
 		MasterReplOffset: 0,
 	}, nil

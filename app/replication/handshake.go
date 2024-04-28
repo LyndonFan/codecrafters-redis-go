@@ -23,7 +23,8 @@ func sendMessage(address string, tkn *token.Token) error {
 
 func (r Replicator) HandshakeWithMaster() error {
 	if r.IsMaster() {
-		return fmt.Errorf("this instance is already the master")
+		fmt.Println("this instance is already the master, will do nothing")
+		return nil
 	}
 
 	message := &token.Token{

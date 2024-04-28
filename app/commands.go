@@ -56,7 +56,7 @@ func info(args []any) (*token.Token, error) {
 		return nil, fmt.Errorf("unexpected arguments: %v", args)
 	}
 	lines := make([]string, 0, 4)
-	for k, v := range replInfo.InfoMap() {
+	for k, v := range repl.InfoMap() {
 		lines = append(lines, fmt.Sprintf("%s:%s", k, v))
 	}
 	return &token.Token{Type: token.BulkStringType, SimpleValue: strings.Join(lines, token.TERMINATOR)}, nil

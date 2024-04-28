@@ -6,46 +6,53 @@ import (
 	"strconv"
 )
 
-type ReplicationInfo struct {
+type Replicator struct {
 	Host             string
 	Port             int
 	MasterRepliID    string
 	MasterReplOffset int
 }
 
-func (ri ReplicationInfo) String() string {
-	if ri.IsMaster() {
-		return fmt.Sprintf("{master, %s..., %d}", ri.MasterRepliID[:6], ri.MasterReplOffset)
+func (r Replicator) String() string {
+	if r.IsMaster() {
+		return fmt.Sprintf("{master, %s..., %d}", r.MasterRepliID[:6], r.MasterReplOffset)
 	}
-	return fmt.Sprintf("{%s:%d, %s..., %d}", ri.Host, ri.Port, ri.MasterRepliID[:6], ri.MasterReplOffset)
+	return fmt.Sprintf("{%s:%d, %s..., %d}", r.Host, r.Port, r.MasterRepliID[:6], r.MasterReplOffset)
 }
 
-func (ri ReplicationInfo) IsMaster() bool {
-	return ri.Host == "" && ri.Port == 0
+func (r Replicator) IsMaster() bool {
+	return r.Host == "" && r.Port == 0
 }
 
-func (ri ReplicationInfo) InfoMap() map[string]string {
+func (r Replicator) MasterAddress() string {
+	if !r.IsMaster() {
+		return fmt.Sprintf("%s:%d", r.Host, r.Port)
+	}
+	return ""
+}
+
+func (r Replicator) InfoMap() map[string]string {
 	role := "slave"
-	if ri.IsMaster() {
+	if r.IsMaster() {
 		role = "master"
 	}
 	return map[string]string{
 		"role":               role,
-		"master_replid":      ri.MasterRepliID,
-		"master_repl_offset": strconv.Itoa(ri.MasterReplOffset),
+		"master_replid":      r.MasterRepliID,
+		"master_repl_offset": strconv.Itoa(r.MasterReplOffset),
 	}
 }
 
-func GetReplicationInfo(host, portString string) (*ReplicationInfo, error) {
+func GetReplicator(host, portString string) (*Replicator, error) {
 	id := randomID()
 	if host == "" && portString == "" {
-		return &ReplicationInfo{MasterRepliID: id}, nil
+		return &Replicator{MasterRepliID: id}, nil
 	}
 	port, err := strconv.Atoi(portString)
 	if err != nil {
 		return nil, err
 	}
-	return &ReplicationInfo{
+	return &Replicator{
 		Host:             host,
 		Port:             port,
 		MasterRepliID:    id,

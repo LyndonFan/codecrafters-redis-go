@@ -43,7 +43,7 @@ func nestedEncode(t *Token) string {
 	}
 	res += strconv.Itoa(n) + TERMINATOR
 	for _, token := range t.NestedValue {
-		res += token.EncodedString() + TERMINATOR
+		res += token.EncodedString()
 	}
 	return res
 }

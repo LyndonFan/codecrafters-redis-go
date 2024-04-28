@@ -14,7 +14,7 @@ import (
 
 var port int
 
-var replInfo *replication.ReplicationInfo
+var repl *replication.Replicator
 
 func init() {
 	flag.IntVar(&port, "port", 6379, "port to listen to")
@@ -24,18 +24,25 @@ func init() {
 	remainingArgs := flag.Args()
 	var err error
 	if len(remainingArgs) == 0 {
-		replInfo, err = replication.GetReplicationInfo("", "")
+		repl, err = replication.GetReplicator("", "")
 	} else if replHost != "" {
-		replInfo, err = replication.GetReplicationInfo(replHost, remainingArgs[0])
+		repl, err = replication.GetReplicator(replHost, remainingArgs[0])
 	}
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	if !repl.IsMaster() {
+		err = repl.HandshakeWithMaster()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 func main() {
-	fmt.Printf("Replication info: %v\n", replInfo)
+	fmt.Printf("Replication info: %v\n", repl)
 	fmt.Println("Logs from your program will appear here!")
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))

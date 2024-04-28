@@ -9,20 +9,21 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func sendMessage(conn net.Conn, tkn *token.Token) error {
+func sendMessage(address string, tkn *token.Token) error {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
 	messageString := tkn.EncodedString()
 	fmt.Println("Will send", strings.Replace(messageString, token.TERMINATOR, "\\r\\n", -1))
-	_, err := conn.Write([]byte(tkn.EncodedString()))
+	_, err = conn.Write([]byte(tkn.EncodedString()))
 	return err
 }
 
 func (r Replicator) HandshakeWithMaster() error {
 	if r.IsMaster() {
 		return fmt.Errorf("this instance is already the master")
-	}
-	conn, err := net.Dial("tcp", r.MasterAddress())
-	if err != nil {
-		return err
 	}
 
 	message := &token.Token{
@@ -34,7 +35,8 @@ func (r Replicator) HandshakeWithMaster() error {
 			},
 		},
 	}
-	err = sendMessage(conn, message)
+	var err error
+	err = sendMessage(r.MasterAddress(), message)
 	if err != nil {
 		return err
 	}
@@ -53,7 +55,7 @@ func (r Replicator) HandshakeWithMaster() error {
 			SimpleValue: strconv.Itoa(r.Port),
 		},
 	}
-	err = sendMessage(conn, message)
+	err = sendMessage(r.MasterAddress(), message)
 	if err != nil {
 		return err
 	}
@@ -72,7 +74,7 @@ func (r Replicator) HandshakeWithMaster() error {
 			SimpleValue: "psync2",
 		},
 	}
-	err = sendMessage(conn, message)
+	err = sendMessage(r.MasterAddress(), message)
 	if err != nil {
 		return err
 	}

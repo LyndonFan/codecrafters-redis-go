@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token"
+	"github.com/codecrafters-io/redis-starter-go/token"
 )
 
 func runCommand(commandName string, args []any) (*token.Token, error) {
@@ -55,9 +55,9 @@ func info(args []any) (*token.Token, error) {
 	if len(args) > 1 {
 		return nil, fmt.Errorf("unexpected arguments: %v", args)
 	}
-	roleString := "slave"
-	if replicationInfo.IsMaster() {
-		roleString = "master"
+	lines := make([]string, 0, 4)
+	for k, v := range replInfo.InfoMap() {
+		lines = append(lines, fmt.Sprintf("%s:%s", k, v))
 	}
-	return &token.Token{Type: token.BulkStringType, SimpleValue: fmt.Sprintf("role:%s", roleString)}, nil
+	return &token.Token{Type: token.BulkStringType, SimpleValue: strings.Join(lines, token.TERMINATOR)}, nil
 }

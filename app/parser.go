@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"go/token"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token"
+	"github.com/codecrafters-io/redis-starter-go/app/token" token
 )
 
 func runTokens(tokens []*token.Token) (*token.Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
-	for tokens[0].Type == arrayType {
+	for tokens[0].Type == token.ArrayType {
 		newTokens := make([]token.Token, len(tokens[0].NestedValue)+len(tokens)-1)
 		copy(newTokens, tokens[0].NestedValue)
 		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
 		tokens = newTokens
 	}
-	if valueEncoding[tokens[0].Type] == "nested" {
+	if token.ValueEncoding[tokens[0].Type] == "nested" {
 		return nil, fmt.Errorf("can't parse nested input of type %s", tokens[0].Type)
 	}
 	command := tokens[0].SimpleValue

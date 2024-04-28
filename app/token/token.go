@@ -2,85 +2,93 @@ package main
 
 const TERMINATOR string = "\r\n"
 
+type TokenType string
+
 const (
-	simpleStringType   string = "simple-string"
-	errorType          string = "error"
-	integerType        string = "integer"
-	bulkStringType     string = "bulk-string"
-	arrayType          string = "array"
-	nullType           string = "null"
-	booleanType        string = "boolean"
-	doubleType         string = "double"
-	bigNumberType      string = "big-number"
-	mapType            string = "map"
-	setType            string = "set"
-	pushType           string = "push"
-	bulkErrorType      string = "bulk-error"
-	verbatimStringType string = "verbatim-string"
+	SimpleStringType   TokenType = "simple-string"
+	ErrorType          TokenType = "error"
+	IntegerType        TokenType = "integer"
+	BulkStringType     TokenType = "bulk-string"
+	ArrayType          TokenType = "array"
+	NullType           TokenType = "null"
+	BooleanType        TokenType = "boolean"
+	DoubleType         TokenType = "double"
+	BigNumberType      TokenType = "big-number"
+	MapType            TokenType = "map"
+	SetType            TokenType = "set"
+	PushType           TokenType = "push"
+	BulkErrorType      TokenType = "bulk-error"
+	VerbatimStringType TokenType = "verbatim-string"
 )
 
 type Token struct {
-	Type          string
+	Type          TokenType
 	SimpleValue   string
 	NestedValue   []*Token
 	representNull bool // only for null bulk strings and null bulk arrays
 }
 
-var firstByteType map[byte]string = map[byte]string{
-	'+': simpleStringType,
-	'-': errorType,
-	':': integerType,
-	'$': bulkStringType,
-	'*': arrayType,
-	'_': nullType,
-	'#': booleanType,
-	',': doubleType,
-	'(': bigNumberType,
-	'!': bulkErrorType,
-	'=': verbatimStringType,
-	'%': mapType,
-	'~': setType,
-	'>': pushType,
+var FirstByteType map[byte]TokenType = map[byte]TokenType{
+	'+': SimpleStringType,
+	'-': ErrorType,
+	':': IntegerType,
+	'$': BulkStringType,
+	'*': ArrayType,
+	'_': NullType,
+	'#': BooleanType,
+	',': DoubleType,
+	'(': BigNumberType,
+	'!': BulkErrorType,
+	'=': VerbatimStringType,
+	'%': MapType,
+	'~': SetType,
+	'>': PushType,
 }
 
-var firstByte map[string]byte = map[string]byte{
-	simpleStringType:   '+',
-	errorType:          '-',
-	integerType:        ':',
-	bulkStringType:     '$',
-	arrayType:          '*',
-	nullType:           '_',
-	booleanType:        '#',
-	doubleType:         ',',
-	bigNumberType:      '(',
-	bulkErrorType:      '!',
-	verbatimStringType: '=',
-	mapType:            '%',
-	setType:            '~',
-	pushType:           '>',
+var firstByte map[TokenType]byte = map[TokenType]byte{
+	SimpleStringType:   '+',
+	ErrorType:          '-',
+	IntegerType:        ':',
+	BulkStringType:     '$',
+	ArrayType:          '*',
+	NullType:           '_',
+	BooleanType:        '#',
+	DoubleType:         ',',
+	BigNumberType:      '(',
+	BulkErrorType:      '!',
+	VerbatimStringType: '=',
+	MapType:            '%',
+	SetType:            '~',
+	PushType:           '>',
 }
+
+// TokenEncoding is the encoding type of a Redis token. It can be one of:
+//   - SimpleEncoding: simple string, error, integer, boolean, null or double
+//   - LengthEncoding: bulk string or array
+//   - NestedEncoding: nested array
+type TokenEncoding string
 
 const (
-	SimpleEncoding string = "simple"
-	LengthEncoding string = "length-encoded"
-	NestedEncoding string = "nested"
+	SimpleEncoding TokenEncoding = "simple"
+	LengthEncoding TokenEncoding = "length-encoded"
+	NestedEncoding TokenEncoding = "nested"
 )
 
-var valueEncoding map[string]string = map[string]string{
-	simpleStringType:   SimpleEncoding,
-	errorType:          SimpleEncoding,
-	integerType:        SimpleEncoding,
-	bulkStringType:     LengthEncoding,
-	arrayType:          NestedEncoding,
-	nullType:           SimpleEncoding,
-	booleanType:        SimpleEncoding,
-	doubleType:         SimpleEncoding,
-	bigNumberType:      SimpleEncoding,
-	bulkErrorType:      LengthEncoding,
-	verbatimStringType: LengthEncoding,
-	mapType:            NestedEncoding,
-	setType:            NestedEncoding,
-	pushType:           NestedEncoding,
+var valueEncoding map[TokenType]TokenEncoding = map[TokenType]TokenEncoding{
+	SimpleStringType:   SimpleEncoding,
+	ErrorType:          SimpleEncoding,
+	IntegerType:        SimpleEncoding,
+	BulkStringType:     LengthEncoding,
+	ArrayType:          NestedEncoding,
+	NullType:           SimpleEncoding,
+	BooleanType:        SimpleEncoding,
+	DoubleType:         SimpleEncoding,
+	BigNumberType:      SimpleEncoding,
+	BulkErrorType:      LengthEncoding,
+	VerbatimStringType: LengthEncoding,
+	MapType:            NestedEncoding,
+	SetType:            NestedEncoding,
+	PushType:           NestedEncoding,
 }
 
-var nullBulkString Token = Token{Type: bulkStringType, SimpleValue: ""}
+var NullBulkString Token = Token{Type: BulkStringType, SimpleValue: ""}

@@ -20,12 +20,12 @@ func simpleEncode(t *Token) string {
 }
 
 func lengthEncode(t *Token) string {
-	if t.Type == bulkStringType && t.representNull {
+	if t.Type == BulkStringType && t.representNull {
 		return string([]byte{firstByte[t.Type]}) + "-1" + TERMINATOR
 	}
 	res := string([]byte{firstByte[t.Type]})
 	res += strconv.Itoa(len(t.SimpleValue)) + TERMINATOR
-	if t.Type == verbatimStringType {
+	if t.Type == VerbatimStringType {
 		res += "txt:"
 	}
 	res += t.SimpleValue + TERMINATOR
@@ -33,12 +33,12 @@ func lengthEncode(t *Token) string {
 }
 
 func nestedEncode(t *Token) string {
-	if t.Type == arrayType && t.representNull {
+	if t.Type == ArrayType && t.representNull {
 		return string([]byte{firstByte[t.Type]}) + "-1" + TERMINATOR
 	}
 	res := string([]byte{firstByte[t.Type]})
 	n := len(t.NestedValue)
-	if t.Type == mapType {
+	if t.Type == MapType {
 		n /= 2
 	}
 	res += strconv.Itoa(n) + TERMINATOR

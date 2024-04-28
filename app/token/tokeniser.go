@@ -28,31 +28,31 @@ func parseToken(read *bufio.Reader) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokenType, exists := firstByteType[firstByte]
+	tknType, exists := FirstByteType[firstByte]
 	if !exists {
 		return nil, fmt.Errorf("unknown first byte: %c", firstByte)
 	}
-	switch valueEncoding[tokenType] {
+	switch valueEncoding[tknType] {
 	case SimpleEncoding:
 		val, err := readSimple(read)
 		if err != nil {
 			return nil, err
 		}
-		return &Token{Type: tokenType, SimpleValue: val}, nil
+		return &Token{Type: tknType, SimpleValue: val}, nil
 	case LengthEncoding:
-		val, err := readLengthEncoded(read, tokenType == verbatimStringType)
+		val, err := readLengthEncoded(read, tknType == VerbatimStringType)
 		if err != nil {
 			return nil, err
 		}
-		return &Token{Type: tokenType, SimpleValue: val}, nil
+		return &Token{Type: tknType, SimpleValue: val}, nil
 	case NestedEncoding:
-		val, err := readNested(read, tokenType == arrayType)
+		val, err := readNested(read, tknType == MapType)
 		if err != nil {
 			return nil, err
 		}
-		return &Token{Type: tokenType, NestedValue: val}, nil
+		return &Token{Type: tknType, NestedValue: val}, nil
 	default:
-		return nil, fmt.Errorf("not implemented parsing for type %s", tokenType)
+		return nil, fmt.Errorf("not implemented parsing for type %s", tknType)
 	}
 }
 

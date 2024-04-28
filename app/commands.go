@@ -16,12 +16,14 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 		return echo(args)
 	case "info":
 		return info(args)
+	case "replconf":
+		return replconf(args)
 	case "set":
-		res, err := cache.Set(args)
+		err := cache.Set(args)
 		if err != nil {
 			return nil, err
 		}
-		return &token.Token{Type: token.SimpleStringType, SimpleValue: res}, nil
+		return &token.OKToken, nil
 	case "get":
 		res, err := cache.Get(args)
 		if err == ErrNotFound {
@@ -60,4 +62,9 @@ func info(args []any) (*token.Token, error) {
 		lines = append(lines, fmt.Sprintf("%s:%s", k, v))
 	}
 	return &token.Token{Type: token.BulkStringType, SimpleValue: strings.Join(lines, token.TERMINATOR)}, nil
+}
+
+func replconf(args []any) (*token.Token, error) {
+	// todo
+	return &token.OKToken, nil
 }

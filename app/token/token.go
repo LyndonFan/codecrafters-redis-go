@@ -90,5 +90,3 @@ var ValueEncoding map[TokenType]TokenEncoding = map[TokenType]TokenEncoding{
 	SetType:            NestedEncoding,
 	PushType:           NestedEncoding,
 }
-
-var NullBulkString Token = Token{Type: BulkStringType, SimpleValue: "", representNull: true}

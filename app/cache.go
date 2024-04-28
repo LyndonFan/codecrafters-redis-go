@@ -17,23 +17,23 @@ type Cache map[string]*Entry
 
 var cache = Cache{}
 
-func (c *Cache) Set(args []any) (string, error) {
+func (c *Cache) Set(args []any) error {
 	key, expiresAt := "", time.Time{}
 	var value any
 	if len(args) != 2 && len(args) != 4 {
-		return "", fmt.Errorf("expected 2 or 4 arguments, got %d", len(args))
+		return fmt.Errorf("expected 2 or 4 arguments, got %d", len(args))
 	}
 	var ok bool
 	key, ok = args[0].(string)
 	if !ok {
-		return "", fmt.Errorf("unable to process key: %v", args[0])
+		return fmt.Errorf("unable to process key: %v", args[0])
 	}
 	value = args[1]
 	now := time.Now()
 	if len(args) == 4 {
 		cmd, ok := args[2].(string)
 		if !ok {
-			return "", fmt.Errorf("unable to process command: %v", args[2])
+			return fmt.Errorf("unable to process command: %v", args[2])
 		}
 		var duration int64
 		durationString, ok := args[3].(string)
@@ -42,7 +42,7 @@ func (c *Cache) Set(args []any) (string, error) {
 			duration, err = strconv.ParseInt(durationString, 10, 64)
 		}
 		if !ok || err != nil {
-			return "", fmt.Errorf("unable to process duration: %v", args[3])
+			return fmt.Errorf("unable to process duration: %v", args[3])
 		}
 		switch strings.ToLower(cmd) {
 		case "ex":
@@ -50,7 +50,7 @@ func (c *Cache) Set(args []any) (string, error) {
 		case "px":
 			expiresAt = now.Add(time.Duration(duration) * time.Millisecond)
 		default:
-			return "", fmt.Errorf("unknown unit %s, should be EX or PX", cmd)
+			return fmt.Errorf("unknown unit %s, should be EX or PX", cmd)
 		}
 	}
 	cache[key] = &Entry{
@@ -58,7 +58,7 @@ func (c *Cache) Set(args []any) (string, error) {
 		TimeCreated: now,
 		ExpiresAt:   expiresAt,
 	}
-	return "OK", nil
+	return nil
 }
 
 var ErrNotFound error = fmt.Errorf("not found")

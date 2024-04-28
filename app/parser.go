@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/codecrafters-io/redis-starter-go/app/token"
+	"github.com/codecrafters-io/redis-starter-go/token"
 )
 
 func runTokens(tokens []*token.Token) (*token.Token, error) {

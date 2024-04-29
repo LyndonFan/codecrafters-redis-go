@@ -7,11 +7,13 @@ import (
 )
 
 type Replicator struct {
+	ID               string
 	Port             int
 	MasterHost       string
 	MasterPort       int
 	MasterRepliID    string
 	MasterReplOffset int
+	FollowerPorts    []int
 }
 
 func (r Replicator) String() string {
@@ -47,13 +49,14 @@ func (r Replicator) InfoMap() map[string]string {
 func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
 	if masterHost == "" && masterPortString == "" {
-		return &Replicator{Port: port, MasterRepliID: id}, nil
+		return &Replicator{ID: id, Port: port, MasterRepliID: id}, nil
 	}
 	masterPort, err := strconv.Atoi(masterPortString)
 	if err != nil {
 		return nil, err
 	}
 	return &Replicator{
+		ID:               id,
 		Port:             port,
 		MasterHost:       masterHost,
 		MasterPort:       masterPort,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
@@ -67,6 +68,20 @@ func info(args []any) (*token.Token, error) {
 }
 
 func replconf(args []any) (*token.Token, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
+	}
+	if args[0] == "listening-port" {
+		portString, ok := args[1].(string)
+		if !ok {
+			return nil, fmt.Errorf("expected 2nd argument to be string, got %v", args[1])
+		}
+		port, err := strconv.Atoi(portString)
+		if err != nil {
+			return nil, err
+		}
+		repl.AddFollower(port)
+	}
 	return &token.OKToken, nil
 }
 

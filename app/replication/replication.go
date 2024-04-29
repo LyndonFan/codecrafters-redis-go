@@ -44,19 +44,19 @@ func (r Replicator) InfoMap() map[string]string {
 	}
 }
 
-func GetReplicator(port int, masterHost, masterPort string) (*Replicator, error) {
+func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
-	if masterHost == "" && masterPort == "" {
+	if masterHost == "" && masterPortString == "" {
 		return &Replicator{Port: port, MasterRepliID: id}, nil
 	}
-	port, err := strconv.Atoi(masterPort)
+	masterPort, err := strconv.Atoi(masterPortString)
 	if err != nil {
 		return nil, err
 	}
 	return &Replicator{
 		Port:             port,
 		MasterHost:       masterHost,
-		MasterPort:       port,
+		MasterPort:       masterPort,
 		MasterRepliID:    id,
 		MasterReplOffset: 0,
 	}, nil

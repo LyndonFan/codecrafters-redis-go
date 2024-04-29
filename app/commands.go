@@ -18,6 +18,8 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 		return info(args)
 	case "replconf":
 		return replconf(args)
+	case "psync":
+		return psync(args)
 	case "set":
 		err := cache.Set(args)
 		if err != nil {
@@ -65,6 +67,12 @@ func info(args []any) (*token.Token, error) {
 }
 
 func replconf(args []any) (*token.Token, error) {
-	// todo
 	return &token.OKToken, nil
+}
+
+func psync(args []any) (*token.Token, error) {
+	return &token.Token{
+		Type:        token.SimpleStringType,
+		SimpleValue: fmt.Sprintf("FULLRESYNC %s %d", repl.MasterRepliID, repl.MasterReplOffset),
+	}, nil
 }

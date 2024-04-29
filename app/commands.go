@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
@@ -86,6 +87,13 @@ func replconf(args []any) (*token.Token, error) {
 }
 
 func psync(args []any) (*token.Token, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
+	}
+	go func() {
+		time.Sleep(1) // hack to get other response to be sent first?
+		repl.SendRDBFileToFollowers()
+	}()
 	return &token.Token{
 		Type:        token.SimpleStringType,
 		SimpleValue: fmt.Sprintf("FULLRESYNC %s %d", repl.MasterRepliID, repl.MasterReplOffset),

@@ -9,16 +9,24 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func sendMessage(address string, tkn *token.Token) error {
-	conn, err := net.Dial("tcp", address)
+func sendMessage(conn net.Conn, tkn *token.Token, expectedResponse string) error {
+	messageString := tkn.EncodedString()
+	fmt.Println("Will send", strings.Replace(messageString, token.TERMINATOR, "\\r\\n", -1))
+	_, err := conn.Write([]byte(tkn.EncodedString()))
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	messageString := tkn.EncodedString()
-	fmt.Println("Will send", strings.Replace(messageString, token.TERMINATOR, "\\r\\n", -1))
-	_, err = conn.Write([]byte(tkn.EncodedString()))
-	return err
+	buf := make([]byte, 128)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return err
+	}
+	response := string(buf[:n])
+	if response != expectedResponse {
+		return fmt.Errorf(
+			"expected \"%s\", received %s", strings.Replace(expectedResponse, token.TERMINATOR, "\\r\\n", -1), strings.Replace(response, token.TERMINATOR, "\\r\\n", -1))
+	}
+	return nil
 }
 
 func (r Replicator) HandshakeWithMaster() error {
@@ -27,55 +35,42 @@ func (r Replicator) HandshakeWithMaster() error {
 		return nil
 	}
 
+	conn, err := net.Dial("tcp", r.MasterAddress())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	message := &token.Token{
 		Type: token.ArrayType,
 		NestedValue: []*token.Token{
-			&token.Token{
+			{
 				Type:        token.BulkStringType,
 				SimpleValue: "ping",
 			},
 		},
 	}
-	var err error
-	err = sendMessage(r.MasterAddress(), message)
+	err = sendMessage(conn, message, "+PONG"+token.TERMINATOR)
 	if err != nil {
 		return err
 	}
 
 	message.NestedValue = []*token.Token{
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "REPLCONF",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "listening-port",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: strconv.Itoa(r.Port),
-		},
+		{Type: token.BulkStringType, SimpleValue: "REPLCONF"},
+		{Type: token.BulkStringType, SimpleValue: "listening-port"},
+		{Type: token.BulkStringType, SimpleValue: strconv.Itoa(r.Port)},
 	}
-	err = sendMessage(r.MasterAddress(), message)
+	err = sendMessage(conn, message, token.OKToken.EncodedString())
 	if err != nil {
 		return err
 	}
 
 	message.NestedValue = []*token.Token{
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "REPLCONF",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "capa",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "psync2",
-		},
+		{Type: token.BulkStringType, SimpleValue: "REPLCONF"},
+		{Type: token.BulkStringType, SimpleValue: "capa"},
+		{Type: token.BulkStringType, SimpleValue: "psync2"},
 	}
-	err = sendMessage(r.MasterAddress(), message)
+	err = sendMessage(conn, message, token.OKToken.EncodedString())
 	if err != nil {
 		return err
 	}

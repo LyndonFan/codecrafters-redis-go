@@ -9,16 +9,20 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func sendMessage(address string, tkn *token.Token) error {
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
+func sendMessage(conn net.Conn, tkn *token.Token) error {
 	messageString := tkn.EncodedString()
 	fmt.Println("Will send", strings.Replace(messageString, token.TERMINATOR, "\\r\\n", -1))
 	_, err = conn.Write([]byte(tkn.EncodedString()))
-	return err
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 128)
+	n, err := conn.Read(buf)
+	responseString = string(buf[:n])
+	if responseString != "+OK"+token.TERMINATOR {
+		return fmt.Errorf("received non-OK response: %s", responseString)
+	}
+	return nil
 }
 
 func (r Replicator) HandshakeWithMaster() error {
@@ -27,53 +31,41 @@ func (r Replicator) HandshakeWithMaster() error {
 		return nil
 	}
 
+	conn, err := net.Dial("tcp", r.MasterAddress())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	message := &token.Token{
 		Type: token.ArrayType,
 		NestedValue: []*token.Token{
-			&token.Token{
+			{
 				Type:        token.BulkStringType,
 				SimpleValue: "ping",
 			},
 		},
 	}
 	var err error
-	err = sendMessage(r.MasterAddress(), message)
+	err = sendMessage(conn, message)
 	if err != nil {
 		return err
 	}
 
 	message.NestedValue = []*token.Token{
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "REPLCONF",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "listening-port",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: strconv.Itoa(r.Port),
-		},
+		{Type: token.BulkStringType, SimpleValue: "REPLCONF"},
+		{Type: token.BulkStringType, SimpleValue: "listening-port"},
+		{Type: token.BulkStringType, SimpleValue: strconv.Itoa(r.Port)},
 	}
-	err = sendMessage(r.MasterAddress(), message)
+	err = sendMessage(conn, message)
 	if err != nil {
 		return err
 	}
 
 	message.NestedValue = []*token.Token{
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "REPLCONF",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "capa",
-		},
-		&token.Token{
-			Type:        token.BulkStringType,
-			SimpleValue: "psync2",
-		},
+		{Type: token.BulkStringType, SimpleValue: "REPLCONF"},
+		{Type: token.BulkStringType, SimpleValue: "capa"},
+		{Type: token.BulkStringType, SimpleValue: "psync2"},
 	}
 	err = sendMessage(r.MasterAddress(), message)
 	if err != nil {

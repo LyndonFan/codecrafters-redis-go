@@ -2,6 +2,10 @@ package token
 
 import "strconv"
 
+func (t *Token) StripTrailingTerminator() {
+	t.stripTrailingTerminator = true
+}
+
 func (t *Token) EncodedString() string {
 	switch ValueEncoding[t.Type] {
 	case SimpleEncoding:
@@ -16,7 +20,11 @@ func (t *Token) EncodedString() string {
 }
 
 func simpleEncode(t *Token) string {
-	return string([]byte{firstByte[t.Type]}) + t.SimpleValue + TERMINATOR
+	res := string([]byte{firstByte[t.Type]}) + t.SimpleValue
+	if !t.stripTrailingTerminator {
+		res += TERMINATOR
+	}
+	return res
 }
 
 func lengthEncode(t *Token) string {

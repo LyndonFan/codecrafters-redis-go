@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/codecrafters-io/redis-starter-go/app/replication"
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
@@ -90,12 +91,16 @@ func psync(args []any) (*token.Token, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
 	}
-	go func() {
-		time.Sleep(time.Second) // hack to get other response to be sent first?
-		repl.SendRDBFileToFollowers()
-	}()
-	return &token.Token{
+	returnValue := fmt.Sprintf("FULLRESYNC %s %d%s", repl.MasterRepliID, repl.MasterReplOffset, token.TERMINATOR)
+	emptyRDB, err := hex.DecodeString(replication.EMPTY_RDB_FILE_HEX)
+	if err != nil {
+		return nil, err
+	}
+	returnValue += fmt.Sprintf("$%d\r\n%s", len(emptyRDB), string(emptyRDB))
+	tkn := token.Token{
 		Type:        token.SimpleStringType,
-		SimpleValue: fmt.Sprintf("FULLRESYNC %s %d", repl.MasterRepliID, repl.MasterReplOffset),
-	}, nil
+		SimpleValue: returnValue,
+	}
+	tkn.StripTrailingTerminator()
+	return &tkn, nil
 }

@@ -22,10 +22,11 @@ const (
 )
 
 type Token struct {
-	Type          TokenType
-	SimpleValue   string
-	NestedValue   []*Token
-	representNull bool // only for null bulk strings and null bulk arrays
+	Type                    TokenType
+	SimpleValue             string
+	NestedValue             []*Token
+	representNull           bool // only for null bulk strings and null bulk arrays
+	stripTrailingTerminator bool // only for RDB files
 }
 
 var FirstByteType map[byte]TokenType = map[byte]TokenType{

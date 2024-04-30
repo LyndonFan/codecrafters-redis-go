@@ -3,17 +3,19 @@ package replication
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"strconv"
 )
 
 type Replicator struct {
-	ID               string
-	Port             int
-	MasterHost       string
-	MasterPort       int
-	MasterRepliID    string
-	MasterReplOffset int
-	FollowerPorts    []int
+	ID                  string
+	Port                int
+	MasterHost          string
+	MasterPort          int
+	MasterRepliID       string
+	MasterReplOffset    int
+	FollowerPorts       []int
+	followerConnections map[int]*net.TCPConn
 }
 
 func (r Replicator) String() string {
@@ -48,20 +50,22 @@ func (r Replicator) InfoMap() map[string]string {
 
 func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
+	connMap := make(map[int]*net.TCPConn)
 	if masterHost == "" && masterPortString == "" {
-		return &Replicator{ID: id, Port: port, MasterRepliID: id}, nil
+		return &Replicator{ID: id, Port: port, MasterRepliID: id, followerConnections: connMap}, nil
 	}
 	masterPort, err := strconv.Atoi(masterPortString)
 	if err != nil {
 		return nil, err
 	}
 	return &Replicator{
-		ID:               id,
-		Port:             port,
-		MasterHost:       masterHost,
-		MasterPort:       masterPort,
-		MasterRepliID:    id,
-		MasterReplOffset: 0,
+		ID:                  id,
+		Port:                port,
+		MasterHost:          masterHost,
+		MasterPort:          masterPort,
+		MasterRepliID:       id,
+		MasterReplOffset:    0,
+		followerConnections: connMap,
 	}, nil
 }
 

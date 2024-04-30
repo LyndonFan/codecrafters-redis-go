@@ -12,6 +12,11 @@ import (
 
 func runCommand(commandName string, args []any) (*token.Token, error) {
 	fmt.Println(commandName, args)
+	var err error
+	reconstructedToken, err := reconstructCommandToken(commandName, args)
+	if err != nil {
+		return nil, fmt.Errorf("unable to reconstruct token: %v", err)
+	}
 	switch strings.ToLower(commandName) {
 	case "ping":
 		return ping(args)
@@ -24,7 +29,8 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 	case "psync":
 		return psync(args)
 	case "set":
-		err := cache.Set(args)
+		go repl.PropagateCommand(reconstructedToken)
+		err = cache.Set(args)
 		if err != nil {
 			return nil, err
 		}
@@ -41,6 +47,16 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 	default:
 		return nil, fmt.Errorf("unknown command: %s", commandName)
 	}
+}
+
+func reconstructCommandToken(commandName string, args []any) (*token.Token, error) {
+	nestedValues := make([]*token.Token, len(args)+1)
+	nestedValues[0] = &token.Token{Type: token.BulkStringType, SimpleValue: commandName}
+	for i, arg := range args {
+		nestedValues[i+1] = &token.Token{Type: token.BulkStringType, SimpleValue: fmt.Sprintf("%v", arg)}
+	}
+	tkn := token.Token{Type: token.ArrayType, NestedValue: nestedValues}
+	return &tkn, nil
 }
 
 func ping(args []any) (*token.Token, error) {

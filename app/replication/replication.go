@@ -13,30 +13,32 @@ func (r *Replicator) AddFollower(port int) {
 	r.FollowerPorts = append(r.FollowerPorts, port)
 }
 
-func (r *Replicator) GetFollowerConnection(port int) (*net.TCPConn, error) {
-	if conn, exists := r.followerConnections[port]; exists {
-		return conn, nil
-	}
-	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		return nil, err
+func (r *Replicator) ShouldAddConnection(port int) bool {
+	_, exists := r.followerConnections[port]
+	return !exists
+}
+
+func (r *Replicator) AddConnection(port int, conn net.Conn) error {
+	_, exists := r.followerConnections[port]
+	if exists {
+		return fmt.Errorf("connection already exists for port %d", port)
 	}
 	tcpConn, ok := conn.(*net.TCPConn)
 	if !ok {
-		return nil, fmt.Errorf("connection isn't TCP")
+		return fmt.Errorf("unable to cast net.Conn to TCPConn")
 	}
-	r.followerConnections[port] = tcpConn
-	return tcpConn, nil
+	tcpConn.SetKeepAlive(true)
+	return nil
 }
 
 func (r *Replicator) PropagateCommand(tkn *token.Token) error {
 	bytes := []byte(tkn.EncodedString())
 	for _, port := range r.FollowerPorts {
-		conn, err := r.GetFollowerConnection(port)
-		if err != nil {
-			return err
+		conn, exists := r.followerConnections[port]
+		if !exists {
+			return fmt.Errorf("unable to find connection for port %d", port)
 		}
-		_, err = conn.Write(bytes)
+		_, err := conn.Write(bytes)
 		if err != nil {
 			return err
 		}

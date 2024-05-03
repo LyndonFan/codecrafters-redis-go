@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
@@ -61,7 +60,6 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	port, _ = strconv.Atoi(strings.Split(conn.LocalAddr().String(), ":")[1])
 	defer conn.Close()
 	for {
 		data := make([]byte, 1024)
@@ -78,6 +76,11 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
 
 		// process data
+		err = repl.HandshakeWithFollower(conn, data)
+		if err == nil {
+			continue
+		}
+
 		tokens, err := token.ParseInput(string(data))
 		if err != nil {
 			fmt.Println("Error parsing input: ", err.Error())
@@ -94,9 +97,6 @@ func handleConnection(conn net.Conn) {
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
 			break
-		}
-		if repl.ShouldAddConnection(port) {
-			repl.AddConnection(port, conn)
 		}
 	}
 }

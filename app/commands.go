@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
@@ -29,7 +28,7 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 	case "psync":
 		return psync(args)
 	case "set":
-		go repl.PropagateCommand(reconstructedToken)
+		go repl.PropagateCommandToken(reconstructedToken)
 		err = cache.Set(args)
 		if err != nil {
 			return nil, err
@@ -90,15 +89,16 @@ func replconf(args []any) (*token.Token, error) {
 		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
 	}
 	if args[0] == "listening-port" {
-		portString, ok := args[1].(string)
-		if !ok {
-			return nil, fmt.Errorf("expected 2nd argument to be string, got %v", args[1])
-		}
-		port, err := strconv.Atoi(portString)
-		if err != nil {
-			return nil, err
-		}
-		repl.AddFollower(port)
+		return nil, fmt.Errorf("this should be handled separately")
+		// portString, ok := args[1].(string)
+		// if !ok {
+		// 	return nil, fmt.Errorf("expected 2nd argument to be string, got %v", args[1])
+		// }
+		// port, err := strconv.Atoi(portString)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// repl.AddFollower(port)
 	}
 	return &token.OKToken, nil
 }

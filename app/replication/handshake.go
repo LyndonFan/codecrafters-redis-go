@@ -36,7 +36,6 @@ func (r Replicator) HandshakeWithMaster() error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	message := &token.Token{
 		Type: token.ArrayType,
@@ -99,7 +98,50 @@ func (r Replicator) HandshakeWithMaster() error {
 	if matched, err := regexp.MatchString(expectedStringPattern, response); !matched || err != nil {
 		return fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(expectedStringPattern), replaceTerminator(response))
 	}
+	fmt.Println("Success")
 	return nil
+}
+
+const REPLCONF_LISTENING_PORT_PREFIX = "*3\r\n$8\r\nreplconf\r\n$14\r\nlistening-port\r\n$"
+
+func (r Replicator) HandshakeWithFollower(conn net.Conn, message []byte) error {
+	messageString := string(message)
+	if len(messageString) < len(REPLCONF_LISTENING_PORT_PREFIX) {
+		return fmt.Errorf("expected at least %d bytes, got %d", len(REPLCONF_LISTENING_PORT_PREFIX), len(messageString))
+	}
+	messagePrefix := messageString[:len(REPLCONF_LISTENING_PORT_PREFIX)]
+	if strings.ToLower(messagePrefix) != REPLCONF_LISTENING_PORT_PREFIX {
+		return fmt.Errorf("expected prefix %s, got %s", replaceTerminator(REPLCONF_LISTENING_PORT_PREFIX), replaceTerminator(messageString))
+	}
+	tokens, err := token.ParseInput(messageString)
+	if err != nil {
+		return err
+	}
+	if len(tokens) != 1 {
+		return fmt.Errorf("expected 1 token, got %d", len(tokens))
+	}
+	tkn := tokens[0]
+	if tkn.Type != token.ArrayType {
+		return fmt.Errorf("expected array token, got %s", tkn.Type)
+	}
+	if len(tkn.NestedValue) != 3 {
+		return fmt.Errorf("expected 3 tokens, got %d", len(tkn.NestedValue))
+	}
+	port, err := strconv.Atoi(tkn.NestedValue[2].SimpleValue)
+	if err != nil {
+		return err
+	}
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		return fmt.Errorf("unable to cast net.Conn to TCPConn")
+	}
+	tcpConn.SetKeepAlive(true)
+	r.followerConnections[port] = tcpConn
+	fmt.Println("Handshake with follower succeeded in 2nd step, saved connection")
+
+	response := token.OKToken.EncodedString()
+	_, err = conn.Write([]byte(response))
+	return err
 }
 
 func replaceTerminator(x string) string {

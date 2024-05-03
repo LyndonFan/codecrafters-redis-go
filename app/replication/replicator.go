@@ -14,7 +14,6 @@ type Replicator struct {
 	MasterPort          int
 	MasterRepliID       string
 	MasterReplOffset    int
-	FollowerPorts       []int
 	followerConnections map[int]*net.TCPConn
 }
 

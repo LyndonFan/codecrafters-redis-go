@@ -82,13 +82,18 @@ func handleConnection(conn net.Conn) {
 		}
 
 		tokens, err := token.ParseInput(string(data))
+		var response *token.Token
 		if err != nil {
 			fmt.Println("Error parsing input: ", err.Error())
-			break
-		}
-		response, err := runTokens(tokens)
-		if err != nil {
-			response = &token.Token{Type: token.ErrorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
+			response = &token.Token{
+				Type:        token.ErrorType,
+				SimpleValue: fmt.Sprintf("error parsing input: %s", err.Error()),
+			}
+		} else {
+			response, err = runTokens(tokens)
+			if err != nil {
+				response = &token.Token{Type: token.ErrorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
+			}
 		}
 		fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
 

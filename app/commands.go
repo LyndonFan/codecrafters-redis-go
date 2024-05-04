@@ -10,7 +10,7 @@ import (
 )
 
 func runCommand(commandName string, args []any) (*token.Token, error) {
-	fmt.Println(commandName, args)
+	fmt.Println(strings.ToLower(commandName), args)
 	var err error
 	reconstructedToken, err := reconstructCommandToken(commandName, args)
 	if err != nil {

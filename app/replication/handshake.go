@@ -26,15 +26,15 @@ func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
 	return response, nil
 }
 
-func (r Replicator) HandshakeWithMaster() error {
+func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	if r.IsMaster() {
 		fmt.Println("this instance is already the master, will do nothing")
-		return nil
+		return nil, nil
 	}
 
 	conn, err := net.Dial("tcp", r.MasterAddress())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	message := &token.Token{
@@ -50,11 +50,11 @@ func (r Replicator) HandshakeWithMaster() error {
 	var response string
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = checkString(response, "+PONG"+token.TERMINATOR)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -64,11 +64,11 @@ func (r Replicator) HandshakeWithMaster() error {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = checkString(response, token.OKToken.EncodedString())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -78,11 +78,11 @@ func (r Replicator) HandshakeWithMaster() error {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = checkString(response, token.OKToken.EncodedString())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -92,14 +92,14 @@ func (r Replicator) HandshakeWithMaster() error {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	expectedStringPattern := "\\+FULLRESYNC [a-z0-9]{40} 0\r\n" // need double escape
 	if matched, err := regexp.MatchString(expectedStringPattern, response); !matched || err != nil {
-		return fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(expectedStringPattern), replaceTerminator(response))
+		return nil, fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(expectedStringPattern), replaceTerminator(response))
 	}
 	fmt.Println("Success")
-	return nil
+	return conn, nil
 }
 
 const REPLCONF_LISTENING_PORT_PREFIX = "*3\r\n$8\r\nreplconf\r\n$14\r\nlistening-port\r\n$"

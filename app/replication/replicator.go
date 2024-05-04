@@ -29,10 +29,10 @@ func (r Replicator) IsMaster() bool {
 }
 
 func (r Replicator) MasterAddress() string {
-	if !r.IsMaster() {
-		return fmt.Sprintf("%s:%d", r.MasterHost, r.MasterPort)
+	if r.IsMaster() {
+		return ""
 	}
-	return ""
+	return fmt.Sprintf("%s:%d", r.MasterHost, r.MasterPort)
 }
 
 func (r Replicator) InfoMap() map[string]string {

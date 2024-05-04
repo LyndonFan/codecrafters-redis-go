@@ -32,11 +32,6 @@ func init() {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	err = repl.HandshakeWithMaster()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 func main() {
@@ -49,28 +44,52 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+	masterConn, err := repl.HandshakeWithMaster()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if masterConn != nil {
+		go handleConnection(masterConn, true)
+	}
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error: ", err.Error())
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, false)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, fromMaster bool) {
 	defer conn.Close()
+	var data []byte
+	if fromMaster {
+		// handle RDB file
+		data = make([]byte, 1024)
+		dataSize, err := conn.Read(data)
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("End of file reached")
+			} else {
+				fmt.Println("Error reading from connection: ", err.Error())
+			}
+		} else {
+			data = data[:dataSize]
+			fmt.Println("Received RDB file: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
+		}
+	}
 	for {
-		data := make([]byte, 1024)
+		data = make([]byte, 1024)
 		dataSize, err := conn.Read(data)
 		data = data[:dataSize]
-		if err == io.EOF {
-			fmt.Println("End of file reached")
-			break
-		}
 		if err != nil {
-			fmt.Println("Error reading from connection: ", err.Error())
+			if err == io.EOF {
+				fmt.Println("End of file reached")
+			} else {
+				fmt.Println("Error reading from connection: ", err.Error())
+			}
 			break
 		}
 		fmt.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
@@ -95,13 +114,16 @@ func handleConnection(conn net.Conn) {
 				response = &token.Token{Type: token.ErrorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
 			}
 		}
-		fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
 
-		// send response
-		_, err = conn.Write([]byte(response.EncodedString()))
-		if err != nil {
-			fmt.Println("Error writing to connection: ", err.Error())
-			break
+		fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
+		if fromMaster {
+			fmt.Println("Not sending response to master")
+		} else {
+			_, err = conn.Write([]byte(response.EncodedString()))
+			if err != nil {
+				fmt.Println("Error writing to connection: ", err.Error())
+				break
+			}
 		}
 	}
 }

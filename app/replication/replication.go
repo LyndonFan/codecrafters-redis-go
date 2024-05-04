@@ -48,6 +48,7 @@ func (r *Replicator) PropagateCommandString(message string) error {
 			fmt.Println("Error: ", err.Error())
 			return err
 		}
+		conn.CloseWrite()
 		fmt.Println("Success")
 	}
 	return nil

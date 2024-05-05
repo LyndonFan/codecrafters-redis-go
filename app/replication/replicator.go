@@ -28,6 +28,11 @@ func (r Replicator) IsMaster() bool {
 	return r.MasterHost == "" && r.MasterPort == 0
 }
 
+func (r Replicator) IsFollower(port int) bool {
+	_, exists := r.followerConnections[port]
+	return exists
+}
+
 func (r Replicator) MasterAddress() string {
 	if r.IsMaster() {
 		return ""

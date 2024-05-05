@@ -38,17 +38,21 @@ func (r *Replicator) PropagateCommandToken(tkn *token.Token) error {
 
 func (r *Replicator) PropagateCommandString(message string) error {
 	bytes := []byte(message)
-	fmt.Printf("Will replicate this command to %d ports: %s\n", len(r.followerConnections), replaceTerminator(message))
-	fmt.Println(r.followerConnections)
+	if len(r.followerConnections) > 0 {
+		fmt.Printf("Will replicate this command to %d ports: %s\n", len(r.followerConnections), replaceTerminator(message))
+		fmt.Println(r.followerConnections)
+	} else {
+		fmt.Println("No followers to replicate to")
+	}
 	for port, conn := range r.followerConnections {
 		fmt.Println("Replicating to port", port)
 		n, err := conn.Write(bytes)
-		fmt.Println("Sent", n, "bytes")
+		fmt.Printf("Sent %d bytes, ", n)
 		if err != nil {
-			fmt.Println("Error: ", err.Error())
+			fmt.Println("error: ", err.Error())
 			return err
 		}
-		fmt.Println("Success")
+		fmt.Println("success")
 	}
 	return nil
 }

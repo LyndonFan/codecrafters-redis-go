@@ -129,14 +129,14 @@ func readNested(read *bufio.Reader, isMap bool) ([]*Token, error) {
 	if isMap {
 		length *= 2 // tokens encoded as [key1, value1, key2, value2, ...]
 	}
-	tokens := make([]*Token, 0, length)
+	tokens := make([]*Token, length)
 	_, peekErr := read.Peek(1)
-	for peekErr == nil {
+	for i := 0; peekErr == nil && i < length; i++ {
 		token, err := parseToken(read)
 		if err != nil {
 			return nil, err
 		}
-		tokens = append(tokens, token)
+		tokens[i] = token
 		_, peekErr = read.Peek(1)
 	}
 	return tokens, nil

@@ -6,18 +6,38 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func runTokens(tokens []*token.Token) (*token.Token, error) {
+/*
+TODO: update logic to handle 2 ways requests are sent
+1. single command, each token as a separate token
+2. multiple commands, at least first token is an array and all its values are command & args
+*/
+
+func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
-	for tokens[0].Type == token.ArrayType {
-		newTokens := make([]*token.Token, len(tokens[0].NestedValue)+len(tokens)-1)
-		copy(newTokens, tokens[0].NestedValue)
-		copy(newTokens[len(tokens[0].NestedValue):], tokens[1:])
-		tokens = newTokens
+	res := make([]*token.Token, 0, len(tokens)/2)
+	for len(tokens) > 0 && tokens[0].Type == token.ArrayType {
+		subResults, err := runTokens(tokens[0].NestedValue)
+		if err != nil {
+			res = append(res, token.TokeniseError(err))
+		} else {
+			res = append(res, subResults...)
+		}
+		tokens = tokens[1:]
 	}
-	if token.ValueEncoding[tokens[0].Type] == "nested" {
-		return nil, fmt.Errorf("can't parse nested input of type %s", tokens[0].Type)
+	if len(tokens) == 0 {
+		return res, nil
+	}
+	var err error
+	if tokens[0].Type != token.SimpleStringType && tokens[0].Type != token.VerbatimStringType && tokens[0].Type != token.BulkStringType {
+		err = fmt.Errorf("expected first token to be of string type, got %s", tokens[0].Type)
+		if len(res) == 0 {
+			return nil, err
+		} else {
+			res = append(res, token.TokeniseError(err))
+			return res, nil
+		}
 	}
 	command := tokens[0].SimpleValue
 	values := make([]any, len(tokens)-1)
@@ -27,6 +47,11 @@ func runTokens(tokens []*token.Token) (*token.Token, error) {
 		}
 		values[i-1] = tokens[i].SimpleValue
 	}
-	res, err := runCommand(command, values)
+	singleRes, err := runCommand(command, values)
+	if err != nil {
+		res = append(res, token.TokeniseError(err))
+	} else {
+		res = append(res, singleRes)
+	}
 	return res, err
 }

@@ -101,28 +101,32 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 		}
 
 		tokens, err := token.ParseInput(string(data))
-		var response *token.Token
+		var responses []*token.Token
 		if err != nil {
-			fmt.Println("Error parsing input: ", err.Error())
-			response = &token.Token{
-				Type:        token.ErrorType,
-				SimpleValue: fmt.Sprintf("error parsing input: %s", err.Error()),
-			}
+			err = fmt.Errorf("error parsing input: %v", err)
+			fmt.Println(err)
+			responses = []*token.Token{token.TokeniseError(err)}
 		} else {
-			response, err = runTokens(tokens)
+			fmt.Println("Tokens:")
+			for _, t := range tokens {
+				fmt.Println(*t)
+			}
+			responses, err = runTokens(tokens)
 			if err != nil {
-				response = &token.Token{Type: token.ErrorType, SimpleValue: fmt.Sprintf("error: %s", err.Error())}
+				fmt.Println(err)
+				responses = []*token.Token{token.TokeniseError(err)}
 			}
 		}
-
-		fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
-		if fromMaster {
-			fmt.Println("Not sending response to master")
-		} else {
-			_, err = conn.Write([]byte(response.EncodedString()))
-			if err != nil {
-				fmt.Println("Error writing to connection: ", err.Error())
-				break
+		for _, response := range responses {
+			fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
+			if fromMaster {
+				fmt.Println("Not sending response to master")
+			} else {
+				_, err = conn.Write([]byte(response.EncodedString()))
+				if err != nil {
+					fmt.Println("Error writing to connection: ", err.Error())
+					break
+				}
 			}
 		}
 	}

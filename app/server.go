@@ -44,6 +44,17 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+	go func() {
+
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				fmt.Println("Error: ", err.Error())
+				continue
+			}
+			go handleConnection(conn, false)
+		}
+	}()
 	masterConn, err := repl.HandshakeWithMaster()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -51,14 +62,6 @@ func main() {
 	}
 	if masterConn != nil {
 		go handleConnection(masterConn, true)
-	}
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Error: ", err.Error())
-			continue
-		}
-		go handleConnection(conn, false)
 	}
 }
 

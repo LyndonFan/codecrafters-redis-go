@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
@@ -44,14 +45,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
-	masterConn, err := repl.HandshakeWithMaster()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-	if masterConn != nil {
-		go handleConnection(masterConn, true)
-	}
+	go func() {
+		masterConn, err := repl.HandshakeWithMaster()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		if masterConn != nil {
+			go handleConnection(masterConn, true)
+		}
+	}()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -63,6 +66,20 @@ func main() {
 }
 
 func handleConnection(conn net.Conn, fromMaster bool) {
+	fmt.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
+	if !fromMaster {
+		connRemoteParts := strings.Split(conn.RemoteAddr().String(), ":")
+		connPortString := connRemoteParts[len(connRemoteParts)-1]
+		connPort, err := strconv.Atoi(connPortString)
+		if err != nil {
+			fmt.Printf("unable to extract port from %s: %v", connPortString, err)
+			return
+		}
+		if repl.IsFollower(connPort) {
+			handleConnection(conn, true)
+			return
+		}
+	}
 	defer conn.Close()
 	var data []byte
 	if fromMaster {

@@ -2,6 +2,7 @@ package replication
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 
 func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
 	messageString := tkn.EncodedString()
-	fmt.Println("Will send", replaceTerminator(messageString))
+	log.Println("Will send", replaceTerminator(messageString))
 	_, err := conn.Write([]byte(tkn.EncodedString()))
 	if err != nil {
 		return "", err
@@ -28,7 +29,7 @@ func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
 
 func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	if r.IsMaster() {
-		fmt.Println("this instance is already the master, will do nothing")
+		log.Println("this instance is already the master, will do nothing")
 		return nil, nil
 	}
 
@@ -98,7 +99,7 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	if matched, err := regexp.MatchString(expectedStringPattern, response); !matched || err != nil {
 		return nil, fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(expectedStringPattern), replaceTerminator(response))
 	}
-	fmt.Println("Success")
+	log.Println("Success")
 	return conn, nil
 }
 
@@ -137,7 +138,7 @@ func (r Replicator) HandshakeWithFollower(conn net.Conn, message []byte) error {
 	}
 	tcpConn.SetKeepAlive(true)
 	r.followerConnections[port] = tcpConn
-	fmt.Println("Handshake with follower succeeded in 2nd step, saved connection")
+	log.Println("Handshake with follower succeeded in 2nd step, saved connection")
 
 	response := token.OKToken.EncodedString()
 	_, err = conn.Write([]byte(response))

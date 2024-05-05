@@ -2,6 +2,7 @@ package replication
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"strconv"
@@ -55,6 +56,7 @@ func (r Replicator) InfoMap() map[string]string {
 func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
 	connMap := make(map[int]*net.TCPConn)
+	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
 	if masterHost == "" && masterPortString == "" {
 		return &Replicator{ID: id, Port: port, MasterRepliID: id, followerConnections: connMap}, nil
 	}

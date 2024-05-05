@@ -2,6 +2,7 @@ package replication
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 
 func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
 	messageString := tkn.EncodedString()
-	fmt.Println("Will send", replaceTerminator(messageString))
+	log.Println("Will send", replaceTerminator(messageString))
 	_, err := conn.Write([]byte(tkn.EncodedString()))
 	if err != nil {
 		return "", err
@@ -26,9 +27,11 @@ func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
 	return response, nil
 }
 
+var HANDSHAKE_FINAL_PATTERN *regexp.Regexp = regexp.MustCompile("^\\+FULLRESYNC [a-z0-9]{40} \\d+\r\n")
+
 func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	if r.IsMaster() {
-		fmt.Println("this instance is already the master, will do nothing")
+		log.Println("this instance is already the master, will do nothing")
 		return nil, nil
 	}
 
@@ -94,11 +97,28 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedStringPattern := "\\+FULLRESYNC [a-z0-9]{40} 0\r\n" // need double escape
-	if matched, err := regexp.MatchString(expectedStringPattern, response); !matched || err != nil {
-		return nil, fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(expectedStringPattern), replaceTerminator(response))
+	log.Println("Handshake final message:", response)
+	matches := HANDSHAKE_FINAL_PATTERN.FindStringSubmatch(response)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(HANDSHAKE_FINAL_PATTERN.String()), replaceTerminator(response))
 	}
-	fmt.Println("Success")
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("expected exactly 1 match, got %d", len(matches))
+	}
+	/*
+		TODO: better handle RDB file
+		sometimes only part of RDB file is included in the response here,
+		sometimes entire RDB file is included, plus extra commands to be processed.
+		either case is problematic.
+
+		proposed impl:
+		- read extra bytes is don't have enough to determine length of RDB File
+		- read bytes until reached length of RDB file
+		- extract the substring of that length and ~~throw them into the sea~~ save for further processing
+		- return any extra bits
+		- on handleConnection side, allow add prefix to data (one time only?)
+	*/
+	log.Println("Success")
 	return conn, nil
 }
 
@@ -137,7 +157,7 @@ func (r Replicator) HandshakeWithFollower(conn net.Conn, message []byte) error {
 	}
 	tcpConn.SetKeepAlive(true)
 	r.followerConnections[port] = tcpConn
-	fmt.Println("Handshake with follower succeeded in 2nd step, saved connection")
+	log.Println("Handshake with follower succeeded in 2nd step, saved connection")
 
 	response := token.OKToken.EncodedString()
 	_, err = conn.Write([]byte(response))

@@ -54,6 +54,7 @@ func main() {
 	}
 	for {
 		conn, err := listener.Accept()
+		fmt.Println("Received connection from", conn.RemoteAddr().String())
 		if err != nil {
 			fmt.Println("Error: ", err.Error())
 			continue

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
@@ -10,7 +11,7 @@ import (
 )
 
 func runCommand(commandName string, args []any) (*token.Token, error) {
-	fmt.Println(strings.ToLower(commandName), args)
+	log.Println(strings.ToLower(commandName), args)
 	var err error
 	reconstructedToken, err := reconstructCommandToken(commandName, args)
 	if err != nil {

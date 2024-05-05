@@ -2,6 +2,7 @@ package replication
 
 import (
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
@@ -35,20 +36,20 @@ func (r *Replicator) PropagateCommandToken(tkn *token.Token) error {
 func (r *Replicator) PropagateCommandString(message string) error {
 	bytes := []byte(message)
 	if len(r.followerConnections) > 0 {
-		fmt.Printf("Will replicate this command to %d ports: %s\n", len(r.followerConnections), replaceTerminator(message))
-		fmt.Println(r.followerConnections)
+		log.Printf("Will replicate this command to %d ports: %s\n", len(r.followerConnections), replaceTerminator(message))
+		log.Println(r.followerConnections)
 	} else {
-		fmt.Println("No followers to replicate to")
+		log.Println("No followers to replicate to")
 	}
 	for port, conn := range r.followerConnections {
-		fmt.Println("Replicating to port", port)
+		log.Println("Replicating to port", port)
 		n, err := conn.Write(bytes)
-		fmt.Printf("Sent %d bytes, ", n)
+		log.Printf("Sent %d bytes, ", n)
 		if err != nil {
-			fmt.Println("error: ", err.Error())
+			log.Println("error: ", err.Error())
 			return err
 		}
-		fmt.Println("success")
+		log.Println("success")
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -19,6 +20,7 @@ var repl *replication.Replicator
 
 func init() {
 	flag.IntVar(&port, "port", 6379, "port to listen to")
+	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
 	var replHost string
 	flag.StringVar(&replHost, "replicaof", "", "if specified, the host and port of its master")
 	flag.Parse()
@@ -30,25 +32,25 @@ func init() {
 		repl, err = replication.GetReplicator(port, replHost, remainingArgs[0])
 	}
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func main() {
-	fmt.Printf("Replication info: %v\n", repl)
-	fmt.Println("Logs from your program will appear here!")
+	log.Printf("Replication info: %v\n", repl)
+	log.Println("Logs from your program will appear here!")
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		fmt.Printf("Failed to bind to port %d\n", port)
+		log.Printf("Failed to bind to port %d\n", port)
 		os.Exit(1)
 	}
 	defer listener.Close()
 	go func() {
 		masterConn, err := repl.HandshakeWithMaster()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			log.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
 		if masterConn != nil {
@@ -58,7 +60,7 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error: ", err.Error())
+			log.Println("Error: ", err.Error())
 			continue
 		}
 		go handleConnection(conn, false)
@@ -66,12 +68,16 @@ func main() {
 }
 
 func handleConnection(conn net.Conn, fromMaster bool) {
-	fmt.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
+	log.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
 	connRemoteParts := strings.Split(conn.RemoteAddr().String(), ":")
 	connPortString := connRemoteParts[len(connRemoteParts)-1]
 	connPort, err := strconv.Atoi(connPortString)
 	if err != nil {
-		fmt.Printf("unable to extract port from %s: %v", connPortString, err)
+		log.Printf("unable to extract port from %s: %v", connPortString, err)
+		return
+	}
+	if repl.IsFollower(connPort) {
+		log.Println("leave connection to be handled by masterConn")
 		return
 	}
 	fromMaster = fromMaster || repl.IsFollower(connPort)
@@ -83,13 +89,13 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 		dataSize, err := conn.Read(data)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("End of file reached")
+				log.Println("End of file reached")
 			} else {
-				fmt.Println("Error reading from connection: ", err.Error())
+				log.Println("Error reading from connection: ", err.Error())
 			}
 		} else {
 			data = data[:dataSize]
-			fmt.Println("Received RDB file: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
+			log.Println("Received RDB file: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
 		}
 	}
 	for {
@@ -98,13 +104,13 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 		data = data[:dataSize]
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("End of file reached")
+				log.Println("End of file reached")
 			} else {
-				fmt.Println("Error reading from connection: ", err.Error())
+				log.Println("Error reading from connection: ", err.Error())
 			}
 			break
 		}
-		fmt.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
+		log.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
 
 		// process data
 		err = repl.HandshakeWithFollower(conn, data)
@@ -116,28 +122,28 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 		var responses []*token.Token
 		if err != nil {
 			err = fmt.Errorf("error parsing input: %v", err)
-			fmt.Println(err)
+			log.Println(err)
 			responses = []*token.Token{token.TokeniseError(err)}
 		} else {
-			fmt.Println("Tokens:")
+			log.Println("Tokens:")
 			for _, t := range tokens {
-				fmt.Println(*t)
+				log.Println(*t)
 			}
 			responses, err = runTokens(tokens)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				responses = []*token.Token{token.TokeniseError(err)}
 			}
 		}
 		fromMaster = fromMaster || repl.IsFollower(connPort)
 		for _, response := range responses {
-			fmt.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
+			log.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
 			if fromMaster {
-				fmt.Println("Not sending response to master")
+				log.Println("Not sending response to master")
 			} else {
 				_, err = conn.Write([]byte(response.EncodedString()))
 				if err != nil {
-					fmt.Println("Error writing to connection: ", err.Error())
+					log.Println("Error writing to connection: ", err.Error())
 					break
 				}
 			}

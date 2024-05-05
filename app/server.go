@@ -63,6 +63,7 @@ func main() {
 }
 
 func handleConnection(conn net.Conn, fromMaster bool) {
+	fmt.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
 	defer conn.Close()
 	var data []byte
 	if fromMaster {

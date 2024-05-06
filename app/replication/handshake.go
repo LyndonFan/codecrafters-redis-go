@@ -11,33 +11,17 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
-	messageString := tkn.EncodedString()
-	log.Println("Will send", replaceTerminator(messageString))
-	_, err := conn.Write([]byte(tkn.EncodedString()))
-	if err != nil {
-		return "", err
-	}
-	buf := make([]byte, 128)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return "", err
-	}
-	response := string(buf[:n])
-	return response, nil
-}
-
 var HANDSHAKE_FINAL_PATTERN *regexp.Regexp = regexp.MustCompile("^\\+FULLRESYNC [a-z0-9]{40} \\d+\r\n")
 
-func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
+func (r Replicator) HandshakeWithMaster() (net.Conn, string, error) {
 	if r.IsMaster() {
 		log.Println("this instance is already the master, will do nothing")
-		return nil, nil
+		return nil, "", nil
 	}
 
 	conn, err := net.Dial("tcp", r.MasterAddress())
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	message := &token.Token{
@@ -53,11 +37,11 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	var response string
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	err = checkString(response, "+PONG"+token.TERMINATOR)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -67,11 +51,11 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	err = checkString(response, token.OKToken.EncodedString())
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -81,11 +65,11 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	err = checkString(response, token.OKToken.EncodedString())
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	message.NestedValue = []*token.Token{
@@ -95,31 +79,23 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, error) {
 	}
 	response, err = sendMessage(conn, message)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	log.Println("Handshake final message:", response)
 	matches := HANDSHAKE_FINAL_PATTERN.FindStringSubmatch(response)
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(HANDSHAKE_FINAL_PATTERN.String()), replaceTerminator(response))
+		return nil, "", fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(HANDSHAKE_FINAL_PATTERN.String()), replaceTerminator(response))
 	}
 	if len(matches) > 1 {
-		return nil, fmt.Errorf("expected exactly 1 match, got %d", len(matches))
+		return nil, "", fmt.Errorf("expected exactly 1 match, got %d", len(matches))
 	}
-	/*
-		TODO: better handle RDB file
-		sometimes only part of RDB file is included in the response here,
-		sometimes entire RDB file is included, plus extra commands to be processed.
-		either case is problematic.
-
-		proposed impl:
-		- read extra bytes is don't have enough to determine length of RDB File
-		- read bytes until reached length of RDB file
-		- extract the substring of that length and ~~throw them into the sea~~ save for further processing
-		- return any extra bits
-		- on handleConnection side, allow add prefix to data (one time only?)
-	*/
+	remainingResponse := response[len(matches[0]):]
+	remainingResponse, err = r.readRestRDB(conn, remainingResponse)
+	if err != nil {
+		return nil, "", err
+	}
 	log.Println("Success")
-	return conn, nil
+	return conn, remainingResponse, nil
 }
 
 const REPLCONF_LISTENING_PORT_PREFIX = "*3\r\n$8\r\nreplconf\r\n$14\r\nlistening-port\r\n$"
@@ -162,6 +138,59 @@ func (r Replicator) HandshakeWithFollower(conn net.Conn, message []byte) error {
 	response := token.OKToken.EncodedString()
 	_, err = conn.Write([]byte(response))
 	return err
+}
+
+var RDB_HEADER_PATTERN = regexp.MustCompile("^\\$\\d+\r\n")
+
+func (r *Replicator) readRestRDB(conn net.Conn, remainingResponse string) (string, error) {
+	// expected RDB file response: $<length>\r\n[.]{<length>}
+	matches := RDB_HEADER_PATTERN.FindStringSubmatch(remainingResponse)
+	var data []byte
+	for len(matches) == 0 {
+		data = make([]byte, 128) // intentionally small
+		n, err := conn.Read(data)
+		if err != nil {
+			return "", err
+		}
+		remainingResponse += string(data[:n])
+		matches = RDB_HEADER_PATTERN.FindStringSubmatch(remainingResponse)
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("expected exactly 1 match for header when reading RDB, got %d", len(matches))
+	}
+	rdbLengthString := strings.Trim(matches[0], "$\r\n")
+	rdbLength, err := strconv.Atoi(rdbLengthString)
+	if err != nil {
+		return "", err
+	}
+	remainingResponse = remainingResponse[len(matches[0]):]
+	for len(remainingResponse) < rdbLength {
+		data = make([]byte, 128) // intentionally small
+		n, err := conn.Read(data)
+		if err != nil {
+			return "", err
+		}
+		remainingResponse += string(data[:n])
+	}
+	log.Printf("Received RDB file: %s%s", matches[0], remainingResponse[:rdbLength])
+	remainingResponse = remainingResponse[rdbLength:]
+	return remainingResponse, nil
+}
+
+func sendMessage(conn net.Conn, tkn *token.Token) (string, error) {
+	messageString := tkn.EncodedString()
+	log.Println("Will send", replaceTerminator(messageString))
+	_, err := conn.Write([]byte(tkn.EncodedString()))
+	if err != nil {
+		return "", err
+	}
+	buf := make([]byte, 128)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return "", err
+	}
+	response := string(buf[:n])
+	return response, nil
 }
 
 func replaceTerminator(x string) string {

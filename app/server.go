@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
 	"github.com/codecrafters-io/redis-starter-go/app/token"
@@ -76,14 +77,14 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 		log.Printf("unable to extract port from %s: %v", connPortString, err)
 		return
 	}
-	if repl.IsFollower(connPort) {
+	if !fromMaster && repl.IsFollower(connPort) {
 		log.Println("leave connection to be handled by masterConn")
 		return
 	}
-	fromMaster = fromMaster || repl.IsFollower(connPort)
-	defer conn.Close()
 	var data []byte
-	for {
+	for fromMaster == repl.IsFollower(connPort) {
+		log.Printf("fromMaster=%v, isFollower=%v\n", fromMaster, repl.IsFollower(connPort))
+		time.Sleep(time.Second)
 		data = make([]byte, 1024)
 		dataSize, err := conn.Read(data)
 		data = data[:dataSize]
@@ -137,5 +138,9 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				}
 			}
 		}
+	}
+	if fromMaster == repl.IsFollower(connPort) {
+		conn.Close()
+		// otherwise conn already exists and is being handled by another function
 	}
 }

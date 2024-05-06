@@ -80,10 +80,9 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 		log.Println("leave connection to be handled by masterConn")
 		return
 	}
-	fromMaster = fromMaster || repl.IsFollower(connPort)
 	defer conn.Close()
 	var data []byte
-	for {
+	for fromMaster == repl.IsFollower(connPort) {
 		data = make([]byte, 1024)
 		dataSize, err := conn.Read(data)
 		data = data[:dataSize]
@@ -137,5 +136,9 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				}
 			}
 		}
+	}
+	if fromMaster == repl.IsFollower(connPort) {
+		conn.Close()
+		// otherwise conn already exists and is being handled by another function
 	}
 }

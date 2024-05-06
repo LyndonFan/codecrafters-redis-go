@@ -48,13 +48,13 @@ func main() {
 	}
 	defer listener.Close()
 	go func() {
-		masterConn, err := repl.HandshakeWithMaster()
+		masterConn, remainingResponse, err := repl.HandshakeWithMaster()
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
 		if masterConn != nil {
-			go handleConnection(masterConn, true)
+			go handleConnection(masterConn, remainingResponse, true)
 		}
 	}()
 	for {
@@ -63,11 +63,11 @@ func main() {
 			log.Println("Error: ", err.Error())
 			continue
 		}
-		go handleConnection(conn, false)
+		go handleConnection(conn, "", false)
 	}
 }
 
-func handleConnection(conn net.Conn, fromMaster bool) {
+func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 	log.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
 	connRemoteParts := strings.Split(conn.RemoteAddr().String(), ":")
 	connPortString := connRemoteParts[len(connRemoteParts)-1]
@@ -83,21 +83,6 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 	fromMaster = fromMaster || repl.IsFollower(connPort)
 	defer conn.Close()
 	var data []byte
-	if fromMaster {
-		// handle RDB file
-		data = make([]byte, 1024)
-		dataSize, err := conn.Read(data)
-		if err != nil {
-			if err == io.EOF {
-				log.Println("End of file reached")
-			} else {
-				log.Println("Error reading from connection: ", err.Error())
-			}
-		} else {
-			data = data[:dataSize]
-			log.Println("Received RDB file: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
-		}
-	}
 	for {
 		data = make([]byte, 1024)
 		dataSize, err := conn.Read(data)
@@ -109,6 +94,10 @@ func handleConnection(conn net.Conn, fromMaster bool) {
 				log.Println("Error reading from connection: ", err.Error())
 			}
 			break
+		}
+		if startingResponse != "" {
+			data = []byte(startingResponse + string(data))
+			startingResponse = ""
 		}
 		log.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
 

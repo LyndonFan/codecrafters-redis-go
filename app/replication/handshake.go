@@ -81,7 +81,7 @@ func (r Replicator) HandshakeWithMaster() (net.Conn, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	log.Println("Handshake final message:", response)
+	log.Println("Handshake final message:", replaceTerminator(response))
 	matches := HANDSHAKE_FINAL_PATTERN.FindStringSubmatch(response)
 	if len(matches) == 0 {
 		return nil, "", fmt.Errorf("expected response to match \"%s\", got %s", replaceTerminator(HANDSHAKE_FINAL_PATTERN.String()), replaceTerminator(response))

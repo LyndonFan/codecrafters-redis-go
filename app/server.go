@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
 	"github.com/codecrafters-io/redis-starter-go/app/token"
@@ -49,6 +50,7 @@ func main() {
 	defer listener.Close()
 	go func() {
 		masterConn, remainingResponse, err := repl.HandshakeWithMaster()
+		log.Printf("Handshake results: %v, \"%s\", %v\n", masterConn, strings.ReplaceAll(remainingResponse, token.TERMINATOR, "\\r\\n"), err)
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -76,14 +78,18 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 		log.Printf("unable to extract port from %s: %v", connPortString, err)
 		return
 	}
-	if repl.IsFollower(connPort) {
+	printCheckMaster := func() {
+		log.Printf("port=%4d, fromMaster=%v, isFollower=%v\n", connPort, fromMaster, connPort == repl.MasterPort)
+	}
+	printCheckMaster()
+	if !fromMaster && connPort == repl.MasterPort {
 		log.Println("leave connection to be handled by masterConn")
 		return
 	}
-	fromMaster = fromMaster || repl.IsFollower(connPort)
-	defer conn.Close()
 	var data []byte
-	for {
+	for fromMaster == (connPort == repl.MasterPort) {
+		printCheckMaster()
+		time.Sleep(time.Second)
 		data = make([]byte, 1024)
 		dataSize, err := conn.Read(data)
 		data = data[:dataSize]
@@ -99,7 +105,7 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 			data = []byte(startingResponse + string(data))
 			startingResponse = ""
 		}
-		log.Println("Received: ", strings.Replace(string(data), token.TERMINATOR, "\\r\\n", -1))
+		log.Println("Received: ", strings.ReplaceAll(string(data), token.TERMINATOR, "\\r\\n"))
 
 		// process data
 		err = repl.HandshakeWithFollower(conn, data)
@@ -124,9 +130,9 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				responses = []*token.Token{token.TokeniseError(err)}
 			}
 		}
-		fromMaster = fromMaster || repl.IsFollower(connPort)
+		fromMaster = fromMaster || connPort == repl.MasterPort
 		for _, response := range responses {
-			log.Println("Response: ", strings.Replace(response.EncodedString(), token.TERMINATOR, "\\r\\n", -1))
+			log.Println("Response: ", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
 			if fromMaster {
 				log.Println("Not sending response to master")
 			} else {
@@ -137,5 +143,9 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				}
 			}
 		}
+	}
+	if fromMaster == connPort == repl.MasterPort {
+		conn.Close()
+		// otherwise conn already exists and is being handled by another function
 	}
 }

@@ -1,12 +1,10 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/app/replication"
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
@@ -25,9 +23,9 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 	case "info":
 		return info(args)
 	case "replconf":
-		return replconf(args)
+		return repl.RespondToReplconf(args)
 	case "psync":
-		return psync(args)
+		return repl.RespondToPsync(args)
 	case "set":
 		go repl.PropagateCommandToken(reconstructedToken)
 		err = cache.Set(args)
@@ -83,41 +81,4 @@ func info(args []any) (*token.Token, error) {
 		lines = append(lines, fmt.Sprintf("%s:%s", k, v))
 	}
 	return &token.Token{Type: token.BulkStringType, SimpleValue: strings.Join(lines, token.TERMINATOR)}, nil
-}
-
-func replconf(args []any) (*token.Token, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
-	}
-	if args[0] == "listening-port" {
-		return nil, fmt.Errorf("this should be handled separately")
-		// portString, ok := args[1].(string)
-		// if !ok {
-		// 	return nil, fmt.Errorf("expected 2nd argument to be string, got %v", args[1])
-		// }
-		// port, err := strconv.Atoi(portString)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// repl.AddFollower(port)
-	}
-	return &token.OKToken, nil
-}
-
-func psync(args []any) (*token.Token, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
-	}
-	returnValue := fmt.Sprintf("FULLRESYNC %s %d%s", repl.MasterRepliID, repl.MasterReplOffset, token.TERMINATOR)
-	emptyRDB, err := hex.DecodeString(replication.EMPTY_RDB_FILE_HEX)
-	if err != nil {
-		return nil, err
-	}
-	returnValue += fmt.Sprintf("$%d\r\n%s", len(emptyRDB), string(emptyRDB))
-	tkn := token.Token{
-		Type:        token.SimpleStringType,
-		SimpleValue: returnValue,
-	}
-	tkn.StripTrailingTerminator()
-	return &tkn, nil
 }

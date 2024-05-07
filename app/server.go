@@ -90,7 +90,7 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 	for fromMaster == (connPort == repl.MasterPort) {
 		printCheckMaster()
 		data = make([]byte, 1024)
-		// possibly wait for other bits, but fall back on startingResponse if timeout
+		// possibly wait for other messages, but fall back on startingResponse if timeout
 		if startingResponse != "" {
 			conn.SetReadDeadline(time.Now().Add(time.Second))
 		}
@@ -134,7 +134,6 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				responses = []*token.Token{token.TokeniseError(err)}
 			}
 		}
-		fromMaster = fromMaster || connPort == repl.MasterPort
 		for _, response := range responses {
 			log.Println("Response: ", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
 			if fromMaster {

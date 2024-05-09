@@ -55,3 +55,29 @@ func (repl *Replicator) RespondToReplconf(args []any) (*token.Token, error) {
 		},
 	}, nil
 }
+
+func (repl *Replicator) RespondToWait(args []any) (*token.Token, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
+	}
+	arg0, ok := args[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("expected arguments to be strings, got %v", args[0])
+	}
+	arg1, ok := args[1].(string)
+	if !ok {
+		return nil, fmt.Errorf("expected arguments to be strings, got %v", args[1])
+	}
+	numReplicas, err := strconv.Atoi(arg0)
+	if err != nil || numReplicas < 0 {
+		return nil, fmt.Errorf("expected first argument to be like a positive number, got %s", arg0)
+	}
+	timeout, err := strconv.Atoi(arg1)
+	if err != nil || timeout < 0 {
+		return nil, fmt.Errorf("expected first argument to be like a positive number, got %s", arg1)
+	}
+	if numReplicas == 0 {
+		return &token.Token{Type: token.SimpleStringType, SimpleValue: "0"}, nil
+	}
+	return nil, nil
+}

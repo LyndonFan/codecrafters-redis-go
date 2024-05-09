@@ -26,6 +26,8 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 		return repl.RespondToReplconf(args)
 	case "psync":
 		return repl.RespondToPsync(args)
+	case "wait":
+		return repl.RespondToWait(args)
 	case "set":
 		go repl.PropagateCommandToken(reconstructedToken)
 		err = cache.Set(args)

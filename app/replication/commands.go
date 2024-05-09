@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
@@ -50,7 +51,7 @@ func (repl *Replicator) RespondToReplconf(args []any) (*token.Token, error) {
 		NestedValue: []*token.Token{
 			{Type: token.SimpleStringType, SimpleValue: "REPLCONF"},
 			{Type: token.SimpleStringType, SimpleValue: "ACK"},
-			{Type: token.SimpleStringType, SimpleValue: "0"},
+			{Type: token.SimpleStringType, SimpleValue: strconv.Itoa(repl.BytesProcessed)},
 		},
 	}, nil
 }

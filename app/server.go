@@ -154,9 +154,6 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 				}
 			}
 		}
-
-		// should only include the number of bytes of commands processed before receiving the REPLCONF GETACK command.
-		repl.BytesProcessed += len(data)
 	}
 	if fromMaster == (connPort == repl.MasterPort) {
 		conn.Close()

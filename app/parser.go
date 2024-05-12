@@ -20,26 +20,35 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 	res := make([]*token.Token, 0, len(tokens)/2)
 	for len(tokens) > 0 && tokens[0].Type == token.ArrayType {
 		log.Println("processing", tokens[0].Value())
-		subResults, err := runTokens(tokens[0].NestedValue)
+		subResult, err := runTokensSingleCommand(tokens[0].NestedValue)
 		if err != nil {
 			res = append(res, token.TokeniseError(err))
 		} else {
-			res = append(res, subResults...)
+			res = append(res, subResult)
 		}
+		repl.BytesProcessed += len(tokens[0].EncodedString())
 		tokens = tokens[1:]
 	}
 	if len(tokens) == 0 {
 		return res, nil
 	}
+	finalRes, err := runTokensSingleCommand(tokens)
+	if err != nil {
+		res = append(res, token.TokeniseError(err))
+	} else {
+		res = append(res, finalRes)
+	}
+	for _, tkn := range tokens {
+		repl.BytesProcessed += len(tkn.EncodedString())
+	}
+	return res, nil
+}
+
+func runTokensSingleCommand(tokens []*token.Token) (*token.Token, error) {
 	var err error
 	if tokens[0].Type != token.SimpleStringType && tokens[0].Type != token.VerbatimStringType && tokens[0].Type != token.BulkStringType {
 		err = fmt.Errorf("expected first token to be of string type, got %s", tokens[0].Type)
-		if len(res) == 0 {
-			return nil, err
-		} else {
-			res = append(res, token.TokeniseError(err))
-			return res, nil
-		}
+		return nil, err
 	}
 	log.Print("processing")
 	for _, tkn := range tokens {
@@ -57,11 +66,5 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 		}
 		values[i-1] = tokens[i].Value()
 	}
-	singleRes, err := runCommand(command, values)
-	if err != nil {
-		res = append(res, token.TokeniseError(err))
-	} else {
-		res = append(res, singleRes)
-	}
-	return res, err
+	return runCommand(command, values)
 }

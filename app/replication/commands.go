@@ -77,7 +77,7 @@ func (repl *Replicator) RespondToWait(args []any) (*token.Token, error) {
 		return nil, fmt.Errorf("expected first argument to be like a positive number, got %s", arg1)
 	}
 	if numReplicas == 0 {
-		return &token.Token{Type: token.SimpleStringType, SimpleValue: "0"}, nil
+		return &token.Token{Type: token.IntegerType, SimpleValue: "0"}, nil
 	}
 	return nil, nil
 }

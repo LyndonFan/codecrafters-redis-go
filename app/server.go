@@ -23,14 +23,21 @@ func init() {
 	flag.IntVar(&port, "port", 6379, "port to listen to")
 	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
 	var replHost string
-	flag.StringVar(&replHost, "replicaof", "", "if specified, the host and port of its master")
+	flag.StringVar(&replHost, "replicaof", "", "if specified, the host and port of its master. Works with `--replicaof HOST PORT` or `--replicaof \"HOST PORT\"`")
 	flag.Parse()
 	remainingArgs := flag.Args()
 	var err error
-	if len(remainingArgs) == 0 {
+	replPortString := "" // not 0, as it could be a possible valid value
+	if len(remainingArgs) > 0 {
+		replPortString = remainingArgs[0]
+	} else if strings.Contains(replHost, " ") {
+		parts := strings.Split(replHost, " ")
+		replHost, replPortString = parts[0], parts[1]
+	}
+	if replHost != "" && replPortString != "" {
+		repl, err = replication.GetReplicator(port, replHost, replPortString)
+	} else {
 		repl, err = replication.GetReplicator(port, "", "")
-	} else if replHost != "" {
-		repl, err = replication.GetReplicator(port, replHost, remainingArgs[0])
 	}
 	if err != nil {
 		log.Printf("Error: %v\n", err)

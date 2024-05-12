@@ -43,7 +43,11 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &token.Token{Type: token.SimpleStringType, SimpleValue: res}, nil
+		resToken, err := token.CreateToken(res)
+		if err != nil {
+			return nil, fmt.Errorf("got %v from cache, but unable to cast to token: %v", res, err)
+		}
+		return resToken, nil
 	default:
 		return nil, fmt.Errorf("unknown command: %s", commandName)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
@@ -18,6 +19,7 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 	}
 	res := make([]*token.Token, 0, len(tokens)/2)
 	for len(tokens) > 0 && tokens[0].Type == token.ArrayType {
+		log.Println("processing", tokens[0].Value())
 		subResults, err := runTokens(tokens[0].NestedValue)
 		if err != nil {
 			res = append(res, token.TokeniseError(err))
@@ -39,13 +41,21 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 			return res, nil
 		}
 	}
-	command := tokens[0].SimpleValue
+	log.Print("processing")
+	for _, tkn := range tokens {
+		log.Printf(" %v", tkn.Value())
+	}
+	log.Println()
+	command, ok := tokens[0].Value().(string)
+	if !ok {
+		return nil, fmt.Errorf("expected first token to be string, but can't cast this: %v", tokens[0].Value())
+	}
 	values := make([]any, len(tokens)-1)
 	for i := 1; i < len(tokens); i++ {
 		if token.ValueEncoding[tokens[i].Type] == "nested" {
 			return nil, fmt.Errorf("can't parse nested input of type %s", tokens[i].Type)
 		}
-		values[i-1] = tokens[i].SimpleValue
+		values[i-1] = tokens[i].Value()
 	}
 	singleRes, err := runCommand(command, values)
 	if err != nil {

@@ -79,5 +79,5 @@ func (repl *Replicator) RespondToWait(args []any) (*token.Token, error) {
 	if numReplicas == 0 {
 		return &token.Token{Type: token.IntegerType, SimpleValue: "0"}, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("unimplemented")
 }

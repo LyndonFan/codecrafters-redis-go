@@ -67,6 +67,10 @@ func main() {
 		}
 	}()
 	for {
+		if repl.Blocked() {
+			time.Sleep(time.Second)
+			continue
+		}
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Println("Error: ", err.Error())
@@ -95,6 +99,10 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 	}
 	var data []byte
 	for fromMaster == (connPort == repl.MasterPort) {
+		if repl.Blocked() {
+			time.Sleep(time.Second)
+			continue
+		}
 		printCheckMaster()
 		data = make([]byte, 1024)
 		// possibly wait for other messages, but fall back on startingResponse if timeout

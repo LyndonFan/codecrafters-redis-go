@@ -4,8 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
@@ -79,5 +81,109 @@ func (repl *Replicator) RespondToWait(args []any) (*token.Token, error) {
 	if numReplicas == 0 {
 		return &token.Token{Type: token.IntegerType, SimpleValue: "0"}, nil
 	}
-	return nil, fmt.Errorf("unimplemented")
+	success := repl.startBlock()
+	if !success {
+		return nil, fmt.Errorf("unable to start block for replicator")
+	}
+	defer repl.endBlock()
+	res, err := repl.countAckFromFollowers(numReplicas, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return &token.Token{Type: token.IntegerType, SimpleValue: strconv.Itoa(res)}, nil
+}
+
+func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (int, error) {
+	askToken := &token.Token{
+		Type: token.ArrayType,
+		NestedValue: []*token.Token{
+			{Type: token.BulkStringType, SimpleValue: "REPLCONF"},
+			{Type: token.BulkStringType, SimpleValue: "GETACK"},
+			{Type: token.BulkStringType, SimpleValue: "*"},
+		},
+	}
+	message := askToken.EncodedString()
+	count := 0
+	errs := make(map[int]error)
+	addChannel, doneChannel := make(chan int), make(chan bool)
+	checkDone := func(add chan int, done chan bool) {
+		defer close(add)
+		var ok bool
+		for {
+			_, ok = <-add
+			if !ok {
+				break
+			}
+			count++
+			if count >= numReplicas {
+				done <- true
+				break
+			}
+		}
+	}
+	go checkDone(addChannel, doneChannel)
+	respond := func(port int, conn *net.TCPConn) {
+		err := repl.getAckFromFollower(conn, timeoutSeconds, message, addChannel)
+		if err != nil {
+			errs[port] = err
+		}
+	}
+	for port, conn := range repl.followerConnections {
+		go respond(port, conn)
+	}
+	select {
+	case <-doneChannel:
+		log.Println("Heard back from sufficient replicas before timeout")
+	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
+		log.Println("Haven't got enough replies but shutting early due to timeout")
+	}
+	if len(errs) == 0 {
+		return count, nil
+	}
+	errorMessage := "Encountered these errors when waiting for followers:"
+	for port, e := range errs {
+		errorMessage += fmt.Sprintf("\n%04d: %v", port, e)
+	}
+	return 0, fmt.Errorf(errorMessage)
+}
+
+func (repl *Replicator) getAckFromFollower(conn *net.TCPConn, timeoutSeconds int, message string, addChannel chan int) error {
+	defer conn.SetReadDeadline(time.Time{})
+	data := []byte(message)
+	_, err := conn.Write(data)
+	if err != nil {
+		return err
+	}
+	errCh := make(chan error)
+	go func() {
+		response := make([]byte, 1024)
+		n, err := conn.Read(response)
+		response = response[:n]
+		if err != nil {
+			errCh <- err
+			return
+		}
+		resTokens, err := token.ParseInput(string(response))
+		if err != nil {
+			errCh <- err
+			return
+		}
+		if len(resTokens) != 1 {
+			errCh <- fmt.Errorf("expected 1 token, got %d", len(resTokens))
+			return
+		}
+		x, isInt := (resTokens[0].Value()).(int)
+		if !isInt {
+			errCh <- fmt.Errorf("returned response isn't an integer")
+			return
+		}
+		errCh <- nil
+		addChannel <- x
+	}()
+	select {
+	case resErr := <-errCh:
+		return resErr
+	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
+		return fmt.Errorf("TIMED OUT")
+	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -55,6 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+	mainContext := context.Background()
 	go func() {
 		masterConn, remainingResponse, err := repl.HandshakeWithMaster()
 		log.Printf("Handshake results: %v, \"%s\", %v\n", masterConn, strings.ReplaceAll(remainingResponse, token.TERMINATOR, "\\r\\n"), err)
@@ -63,20 +65,28 @@ func main() {
 			os.Exit(1)
 		}
 		if masterConn != nil {
-			go handleConnection(masterConn, remainingResponse, true)
+			ctx := context.WithValue(mainContext, "fromMaster", true)
+			ctx = context.WithValue(ctx, "address", masterConn.LocalAddr().String())
+			go handleConnection(ctx, masterConn, remainingResponse, true)
 		}
 	}()
 	for {
+		if repl.Blocked() {
+			time.Sleep(time.Second)
+			continue
+		}
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Println("Error: ", err.Error())
 			continue
 		}
-		go handleConnection(conn, "", false)
+		ctx := context.WithValue(mainContext, "fromMaster", true)
+		ctx = context.WithValue(ctx, "address", conn.LocalAddr().String())
+		go handleConnection(ctx, conn, "", false)
 	}
 }
 
-func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
+func handleConnection(ctx context.Context, conn net.Conn, startingResponse string, fromMaster bool) {
 	log.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
 	connRemoteParts := strings.Split(conn.RemoteAddr().String(), ":")
 	connPortString := connRemoteParts[len(connRemoteParts)-1]
@@ -95,6 +105,10 @@ func handleConnection(conn net.Conn, startingResponse string, fromMaster bool) {
 	}
 	var data []byte
 	for fromMaster == (connPort == repl.MasterPort) {
+		if repl.Blocked() {
+			time.Sleep(time.Second)
+			continue
+		}
 		printCheckMaster()
 		data = make([]byte, 1024)
 		// possibly wait for other messages, but fall back on startingResponse if timeout

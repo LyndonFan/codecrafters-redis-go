@@ -7,6 +7,31 @@ import (
 
 const MAX_INT32_NUM_DIGITS = 9
 
+func (tkn *Token) String() string {
+	if tkn == nil {
+		return "Token{}"
+	}
+	if tkn.representNull {
+		if tkn.Type == BulkStringType {
+			return "Token{NULL_BULK_STRING}"
+		}
+		if tkn.Type == ArrayType {
+			return "Token{NULL_BULK_ARRAY}"
+		}
+	}
+	res := "Token"
+	if tkn.stripTrailingTerminator {
+		res += "(no last term)"
+	}
+	v := tkn.Value()
+	if _, ok := v.(string); ok {
+		res += fmt.Sprintf("{\"%v\"}", v)
+	} else {
+		res += fmt.Sprintf("{%v}", v)
+	}
+	return res
+}
+
 func (tkn *Token) Value() any {
 	switch tkn.Type {
 	case NullType:

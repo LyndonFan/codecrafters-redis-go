@@ -33,6 +33,7 @@ func runTokens(ctx context.Context, tokens []*token.Token) ([]*token.Token, erro
 	if len(tokens) == 0 {
 		return res, nil
 	}
+	log.Println("processing", tokens)
 	finalRes, err := runTokensSingleCommand(ctx, tokens)
 	if err != nil {
 		res = append(res, token.TokeniseError(err))
@@ -51,11 +52,6 @@ func runTokensSingleCommand(ctx context.Context, tokens []*token.Token) (*token.
 		err = fmt.Errorf("expected first token to be of string type, got %s", tokens[0].Type)
 		return nil, err
 	}
-	log.Print("processing")
-	for _, tkn := range tokens {
-		log.Printf(" %v", tkn.Value())
-	}
-	log.Println()
 	command, ok := tokens[0].Value().(string)
 	if !ok {
 		return nil, fmt.Errorf("expected first token to be string, but can't cast this: %v", tokens[0].Value())

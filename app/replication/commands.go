@@ -117,15 +117,16 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 	count := 0
 	errs := make(map[int]error)
 	doneChannel := make(chan bool)
+	defer close(doneChannel)
 	checkDone := func(done chan bool) {
-		var ok bool
 		for {
-			_, ok = <-repl.followerCounter.portChannel
+			port, ok := <-repl.followerCounter.portChannel
 			if !ok {
 				break
 			}
+			log.Printf("Received ack from port %v\n", port)
 			count++
-			if count >= numReplicas {
+			if count >= numReplicas || count == len(repl.followerConnections) {
 				done <- true
 				break
 			}
@@ -138,12 +139,13 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 			errs[port] = err
 		}
 	}
+	log.Println("Start sending \"REPLCONF GETACK *\" to followers")
 	for port, conn := range repl.followerConnections {
 		go respond(port, conn)
 	}
 	select {
 	case <-doneChannel:
-		log.Println("Heard back from sufficient replicas before timeout")
+		log.Println("Heard back from sufficient (or all) replicas before timeout")
 	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
 		log.Println("Haven't got enough replies but shutting early due to timeout")
 	}

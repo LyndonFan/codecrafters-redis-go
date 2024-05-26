@@ -125,7 +125,7 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 				break
 			}
 			count++
-			if count >= numReplicas {
+			if count >= numReplicas || count == len(repl.followerConnections) {
 				done <- true
 				break
 			}

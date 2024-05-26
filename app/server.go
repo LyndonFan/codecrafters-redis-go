@@ -147,7 +147,7 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 		} else {
 			log.Println("Tokens:")
 			for _, t := range tokens {
-				log.Println(*t)
+				log.Printf("%v\n", *t)
 			}
 			responses, err = runTokens(ctx, tokens)
 			if err != nil {

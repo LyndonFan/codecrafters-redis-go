@@ -149,7 +149,7 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 			for _, t := range tokens {
 				log.Println(*t)
 			}
-			responses, err = runTokens(tokens)
+			responses, err = runTokens(ctx, tokens)
 			if err != nil {
 				log.Println(err)
 				responses = []*token.Token{token.TokeniseError(err)}
@@ -157,6 +157,10 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 		}
 		for _, response := range responses {
 			log.Println("Response: ", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
+			if response.EncodedString() == "" {
+				log.Println("Nothing to write, skipping")
+				continue
+			}
 			// TODO: patch this workaround?
 			if fromMaster && !strings.Contains(response.EncodedString(), "ACK\r\n") {
 				log.Println("Not sending response to master")

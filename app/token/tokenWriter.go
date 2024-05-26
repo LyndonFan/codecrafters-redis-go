@@ -7,6 +7,9 @@ func (t *Token) StripTrailingTerminator() {
 }
 
 func (t *Token) EncodedString() string {
+	if t == nil {
+		return ""
+	}
 	switch ValueEncoding[t.Type] {
 	case SimpleEncoding:
 		return simpleEncode(t)

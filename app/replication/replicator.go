@@ -17,8 +17,7 @@ type Replicator struct {
 	MasterReplOffset    int
 	BytesProcessed      int
 	followerConnections map[int]*net.TCPConn
-	waitLock            *waitLock
-	followerResponded   map[int]bool
+	followerCounter     *followerCounter
 }
 
 func (r Replicator) String() string {
@@ -59,7 +58,7 @@ func (r Replicator) InfoMap() map[string]string {
 func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
 	connMap := make(map[int]*net.TCPConn)
-	lock := &waitLock{}
+	lock := &followerCounter{}
 	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
 	if masterHost == "" && masterPortString == "" {
 		return &Replicator{
@@ -67,7 +66,7 @@ func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, 
 			Port:                port,
 			MasterRepliID:       id,
 			followerConnections: connMap,
-			waitLock:            lock,
+			followerCounter:     lock,
 		}, nil
 	}
 	masterPort, err := strconv.Atoi(masterPortString)
@@ -82,7 +81,7 @@ func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, 
 		MasterRepliID:       id,
 		MasterReplOffset:    0,
 		followerConnections: connMap,
-		waitLock:            lock,
+		followerCounter:     lock,
 	}, nil
 }
 

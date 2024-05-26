@@ -67,6 +67,9 @@ func (repl *Replicator) RespondToReplconf(ctx context.Context, args []any) (*tok
 			return nil, fmt.Errorf("unable to get port from context: %v", err)
 		}
 		err = repl.followerCounter.AddRespondedFollower(followerPort)
+		if err == ErrNotLocked {
+			err = nil
+		}
 		return nil, err
 	}
 	return nil, fmt.Errorf("not implemented yet")
@@ -102,7 +105,7 @@ func (repl *Replicator) RespondToWait(ctx context.Context, args []any) (*token.T
 	return &token.Token{Type: token.IntegerType, SimpleValue: strconv.Itoa(res)}, nil
 }
 
-func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (int, error) {
+func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutMilliseconds int) (int, error) {
 	repl.followerCounter.StartBlock()
 	defer repl.followerCounter.EndBlock()
 	askToken := &token.Token{
@@ -114,37 +117,40 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 		},
 	}
 	message := askToken.EncodedString()
-	count := 0
 	errs := make(map[int]error)
 	doneChannel := make(chan bool)
-	checkDone := func(done chan bool) {
-		var ok bool
-		for {
-			_, ok = <-repl.followerCounter.portChannel
+	defer close(doneChannel)
+	count := 0
+	go func() {
+		for repl.followerCounter.Locked() {
+			port, ok := <-repl.followerCounter.portChannel
 			if !ok {
 				break
 			}
-			count++
-			if count >= numReplicas {
-				done <- true
+			log.Printf("Received ack from port %v\n", port)
+			count = repl.followerCounter.NumRespondedFollowers()
+			if count == len(repl.followerConnections) {
+				doneChannel <- true
 				break
 			}
 		}
-	}
-	go checkDone(doneChannel)
+	}()
 	respond := func(port int, conn *net.TCPConn) {
+		log.Printf("[follower:%04d] asking ACK from follower\n", port)
 		_, err := conn.Write([]byte(message))
 		if err != nil {
+			log.Printf("[follower:%04d] encountered error from follower: %v\n", port, err)
 			errs[port] = err
 		}
 	}
+	log.Printf("Start sending \"REPLCONF GETACK *\" to %v follower(s)\n", len(repl.followerConnections))
 	for port, conn := range repl.followerConnections {
 		go respond(port, conn)
 	}
 	select {
 	case <-doneChannel:
-		log.Println("Heard back from sufficient replicas before timeout")
-	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
+		log.Println("Heard back from sufficient (or all) replicas before timeout")
+	case <-time.After(time.Millisecond * time.Duration(timeoutMilliseconds)):
 		log.Println("Haven't got enough replies but shutting early due to timeout")
 	}
 	if len(errs) == 0 {

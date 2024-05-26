@@ -1,44 +1,62 @@
 package replication
 
 import (
+	"fmt"
 	"sync"
 )
 
 func (repl *Replicator) Blocked() bool {
-	return repl.waitLock.Locked()
+	return repl.followerCounter.Locked()
 }
 
-func (repl *Replicator) startBlock() bool {
-	return repl.waitLock.StartBlock()
+type followerCounter struct {
+	mutex       sync.Mutex
+	locked      bool
+	responded   map[int]bool
+	portChannel chan int
 }
 
-func (repl *Replicator) endBlock() bool {
-	return repl.waitLock.EndBlock()
-}
-
-type waitLock struct {
-	mutex  sync.Mutex
-	locked bool
-}
-
-func (lock *waitLock) Locked() bool {
+func (lock *followerCounter) Locked() bool {
 	return lock.locked
 }
 
-func (lock *waitLock) StartBlock() bool {
+func (lock *followerCounter) StartBlock() error {
 	if lock.locked {
-		return false
+		return fmt.Errorf("followerCounter isn't locked")
 	}
 	lock.mutex.Lock()
+	defer lock.mutex.Unlock()
 	lock.locked = true
-	return true
+	lock.responded = make(map[int]bool)
+	lock.portChannel = make(chan int)
+	return nil
 }
 
-func (lock *waitLock) EndBlock() bool {
+func (lock *followerCounter) EndBlock() error {
 	if !lock.locked {
-		return false
+		return fmt.Errorf("followerCounter isn't locked")
 	}
-	lock.mutex.Unlock()
+	lock.mutex.Lock()
+	defer lock.mutex.Unlock()
+	lock.responded = nil
+	close(lock.portChannel)
 	lock.locked = false
-	return true
+	return nil
+}
+
+func (lock *followerCounter) AddRespondedFollower(port int) error {
+	if !lock.locked {
+		return fmt.Errorf("followerCounter isn't locked")
+	}
+	lock.mutex.Lock()
+	defer lock.mutex.Unlock()
+	lock.responded[port] = true
+	lock.portChannel <- port
+	return nil
+}
+
+func (lock *followerCounter) NumRespondedFollowers() int {
+	lock.mutex.Lock()
+	defer lock.mutex.Unlock()
+	return len(lock.responded)
 }

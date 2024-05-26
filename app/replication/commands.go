@@ -125,7 +125,7 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 				break
 			}
 			count++
-			if count >= numReplicas {
+			if count >= numReplicas || count == len(repl.followerConnections) {
 				done <- true
 				break
 			}
@@ -143,7 +143,7 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 	}
 	select {
 	case <-doneChannel:
-		log.Println("Heard back from sufficient replicas before timeout")
+		log.Println("Heard back from sufficient (or all) replicas before timeout")
 	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
 		log.Println("Haven't got enough replies but shutting early due to timeout")
 	}

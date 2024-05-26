@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -17,7 +16,7 @@ func (repl *Replicator) RespondToPsync(ctx context.Context, args []any) (*token.
 	if len(args) != 2 {
 		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
 	}
-	returnValue := fmt.Sprintf("FULLRESYNC %s %d%s", repl.MasterRepliID, repl.MasterReplOffset, token.TERMINATOR)
+	returnValue := fmt.Sprintf("FULLRESYNC %s %d%s", repl.MasterReplID, repl.MasterReplOffset, token.TERMINATOR)
 	emptyRDB, err := hex.DecodeString(EMPTY_RDB_FILE_HEX)
 	if err != nil {
 		return nil, err
@@ -39,7 +38,7 @@ func (repl *Replicator) RespondToReplconf(ctx context.Context, args []any) (*tok
 	for i, v := range args {
 		stringArgs[i] = strings.ToLower(fmt.Sprintf("%v", v))
 	}
-	log.Println("stringArgs", stringArgs)
+	repl.logger.Debug(fmt.Sprintf("stringArgs %v", stringArgs))
 	if stringArgs[0] == "listening-port" {
 		return nil, fmt.Errorf("this should be handled separately")
 	}
@@ -127,31 +126,31 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutMilliseconds i
 			if !ok {
 				break
 			}
-			log.Printf("Received ack from port %v\n", port)
+			repl.logger.Debug(fmt.Sprintf("Received ack from port %v\n", port))
 			count = repl.followerCounter.NumRespondedFollowers()
-			if count == len(repl.followerConnections) {
+			if count >= numReplicas || count == len(repl.followerConnections) {
 				doneChannel <- true
 				break
 			}
 		}
 	}()
 	respond := func(port int, conn *net.TCPConn) {
-		log.Printf("[follower:%04d] asking ACK from follower\n", port)
+		repl.logger.Debug(fmt.Sprintf("[follower:%04d] asking ACK from follower\n", port))
 		_, err := conn.Write([]byte(message))
 		if err != nil {
-			log.Printf("[follower:%04d] encountered error from follower: %v\n", port, err)
+			repl.logger.Debug(fmt.Sprintf("[follower:%04d] encountered error from follower: %v\n", port, err))
 			errs[port] = err
 		}
 	}
-	log.Printf("Start sending \"REPLCONF GETACK *\" to %v follower(s)\n", len(repl.followerConnections))
+	repl.logger.Debug(fmt.Sprintf("Start sending \"REPLCONF GETACK *\" to %v follower(s)\n", len(repl.followerConnections)))
 	for port, conn := range repl.followerConnections {
 		go respond(port, conn)
 	}
 	select {
 	case <-doneChannel:
-		log.Println("Heard back from sufficient (or all) replicas before timeout")
+		repl.logger.Debug("Heard back from sufficient (or all) replicas before timeout")
 	case <-time.After(time.Millisecond * time.Duration(timeoutMilliseconds)):
-		log.Println("Haven't got enough replies but shutting early due to timeout")
+		repl.logger.Debug("Haven't got enough replies but shutting early due to timeout")
 	}
 	if len(errs) == 0 {
 		return count, nil

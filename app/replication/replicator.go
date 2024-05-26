@@ -2,10 +2,12 @@ package replication
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"strconv"
+
+	"github.com/codecrafters-io/redis-starter-go/app/logger"
 )
 
 type Replicator struct {
@@ -13,18 +15,19 @@ type Replicator struct {
 	Port                int
 	MasterHost          string
 	MasterPort          int
-	MasterRepliID       string
+	MasterReplID        string
 	MasterReplOffset    int
 	BytesProcessed      int
 	followerConnections map[int]*net.TCPConn
 	followerCounter     *followerCounter
+	logger              *slog.Logger
 }
 
 func (r Replicator) String() string {
 	if r.IsMaster() {
-		return fmt.Sprintf("{master, %s..., %d}", r.MasterRepliID[:6], r.MasterReplOffset)
+		return fmt.Sprintf("{master, %s..., %d}", r.MasterReplID[:6], r.MasterReplOffset)
 	}
-	return fmt.Sprintf("{%s:%d, %s..., %d}", r.MasterHost, r.MasterPort, r.MasterRepliID[:6], r.MasterReplOffset)
+	return fmt.Sprintf("{%s:%d, %s..., %d}", r.MasterHost, r.MasterPort, r.MasterReplID[:6], r.MasterReplOffset)
 }
 
 func (r Replicator) IsMaster() bool {
@@ -50,7 +53,7 @@ func (r Replicator) InfoMap() map[string]string {
 	}
 	return map[string]string{
 		"role":               role,
-		"master_replid":      r.MasterRepliID,
+		"master_replid":      r.MasterReplID,
 		"master_repl_offset": strconv.Itoa(r.MasterReplOffset),
 	}
 }
@@ -59,14 +62,15 @@ func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, 
 	id := randomID()
 	connMap := make(map[int]*net.TCPConn)
 	lock := &followerCounter{}
-	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
+	logger := logger.NewLogger(port)
 	if masterHost == "" && masterPortString == "" {
 		return &Replicator{
 			ID:                  id,
 			Port:                port,
-			MasterRepliID:       id,
+			MasterReplID:        id,
 			followerConnections: connMap,
 			followerCounter:     lock,
+			logger:              logger,
 		}, nil
 	}
 	masterPort, err := strconv.Atoi(masterPortString)
@@ -78,10 +82,11 @@ func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, 
 		Port:                port,
 		MasterHost:          masterHost,
 		MasterPort:          masterPort,
-		MasterRepliID:       id,
+		MasterReplID:        id,
 		MasterReplOffset:    0,
 		followerConnections: connMap,
 		followerCounter:     lock,
+		logger:              logger,
 	}, nil
 }
 

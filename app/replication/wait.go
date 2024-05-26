@@ -1,9 +1,12 @@
 package replication
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 )
+
+var ErrNotLocked error = errors.New("followerCounter isn't locked")
 
 func (repl *Replicator) Blocked() bool {
 	return repl.followerCounter.Locked()
@@ -22,7 +25,7 @@ func (lock *followerCounter) Locked() bool {
 
 func (lock *followerCounter) StartBlock() error {
 	if lock.locked {
-		return fmt.Errorf("followerCounter isn't locked")
+		return ErrNotLocked
 	}
 	lock.mutex.Lock()
 	defer lock.mutex.Unlock()
@@ -34,7 +37,7 @@ func (lock *followerCounter) StartBlock() error {
 
 func (lock *followerCounter) EndBlock() error {
 	if !lock.locked {
-		return fmt.Errorf("followerCounter isn't locked")
+		return ErrNotLocked
 	}
 	lock.mutex.Lock()
 	defer lock.mutex.Unlock()
@@ -46,7 +49,7 @@ func (lock *followerCounter) EndBlock() error {
 
 func (lock *followerCounter) AddRespondedFollower(port int) error {
 	if !lock.locked {
-		return fmt.Errorf("followerCounter isn't locked")
+		return ErrNotLocked
 	}
 	lock.mutex.Lock()
 	defer lock.mutex.Unlock()

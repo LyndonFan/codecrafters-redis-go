@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
-func runCommand(commandName string, args []any) (*token.Token, error) {
+func runCommand(ctx context.Context, commandName string, args []any) (*token.Token, error) {
 	log.Println(strings.ToLower(commandName), args)
 	var err error
 	reconstructedToken, err := reconstructCommandToken(commandName, args)
@@ -23,11 +24,11 @@ func runCommand(commandName string, args []any) (*token.Token, error) {
 	case "info":
 		return info(args)
 	case "replconf":
-		return repl.RespondToReplconf(args)
+		return repl.RespondToReplconf(ctx, args)
 	case "psync":
-		return repl.RespondToPsync(args)
+		return repl.RespondToPsync(ctx, args)
 	case "wait":
-		return repl.RespondToWait(args)
+		return repl.RespondToWait(ctx, args)
 	case "set":
 		go repl.PropagateCommandToken(reconstructedToken)
 		err = cache.Set(args)

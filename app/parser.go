@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -13,14 +14,14 @@ TODO: update logic to handle 2 ways requests are sent
 2. multiple commands, at least first token is an array and all its values are command & args
 */
 
-func runTokens(tokens []*token.Token) ([]*token.Token, error) {
+func runTokens(ctx context.Context, tokens []*token.Token) ([]*token.Token, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty input")
 	}
 	res := make([]*token.Token, 0, len(tokens)/2)
 	for len(tokens) > 0 && tokens[0].Type == token.ArrayType {
 		log.Println("processing", tokens[0].Value())
-		subResult, err := runTokensSingleCommand(tokens[0].NestedValue)
+		subResult, err := runTokensSingleCommand(ctx, tokens[0].NestedValue)
 		if err != nil {
 			res = append(res, token.TokeniseError(err))
 		} else {
@@ -32,7 +33,7 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 	if len(tokens) == 0 {
 		return res, nil
 	}
-	finalRes, err := runTokensSingleCommand(tokens)
+	finalRes, err := runTokensSingleCommand(ctx, tokens)
 	if err != nil {
 		res = append(res, token.TokeniseError(err))
 	} else {
@@ -44,7 +45,7 @@ func runTokens(tokens []*token.Token) ([]*token.Token, error) {
 	return res, nil
 }
 
-func runTokensSingleCommand(tokens []*token.Token) (*token.Token, error) {
+func runTokensSingleCommand(ctx context.Context, tokens []*token.Token) (*token.Token, error) {
 	var err error
 	if tokens[0].Type != token.SimpleStringType && tokens[0].Type != token.VerbatimStringType && tokens[0].Type != token.BulkStringType {
 		err = fmt.Errorf("expected first token to be of string type, got %s", tokens[0].Type)
@@ -66,5 +67,5 @@ func runTokensSingleCommand(tokens []*token.Token) (*token.Token, error) {
 		}
 		values[i-1] = tokens[i].Value()
 	}
-	return runCommand(command, values)
+	return runCommand(ctx, command, values)
 }

@@ -66,7 +66,7 @@ func main() {
 		}
 		if masterConn != nil {
 			ctx := context.WithValue(mainContext, "fromMaster", true)
-			ctx = context.WithValue(ctx, "address", masterConn.LocalAddr().String())
+			ctx = context.WithValue(ctx, "address", masterConn.RemoteAddr().String())
 			go handleConnection(ctx, masterConn, remainingResponse, true)
 		}
 	}()
@@ -81,7 +81,7 @@ func main() {
 			continue
 		}
 		ctx := context.WithValue(mainContext, "fromMaster", true)
-		ctx = context.WithValue(ctx, "address", conn.LocalAddr().String())
+		ctx = context.WithValue(ctx, "address", conn.RemoteAddr().String())
 		go handleConnection(ctx, conn, "", false)
 	}
 }
@@ -149,7 +149,7 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 			for _, t := range tokens {
 				log.Println(*t)
 			}
-			responses, err = runTokens(tokens)
+			responses, err = runTokens(ctx, tokens)
 			if err != nil {
 				log.Println(err)
 				responses = []*token.Token{token.TokeniseError(err)}
@@ -157,6 +157,10 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 		}
 		for _, response := range responses {
 			log.Println("Response: ", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
+			if response.EncodedString() == "" {
+				log.Println("Nothing to write, skipping")
+				continue
+			}
 			// TODO: patch this workaround?
 			if fromMaster && !strings.Contains(response.EncodedString(), "ACK\r\n") {
 				log.Println("Not sending response to master")

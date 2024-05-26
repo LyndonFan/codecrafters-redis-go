@@ -43,20 +43,33 @@ func (repl *Replicator) RespondToReplconf(ctx context.Context, args []any) (*tok
 	if stringArgs[0] == "listening-port" {
 		return nil, fmt.Errorf("this should be handled separately")
 	}
-	if stringArgs[0] != "getack" {
+	if stringArgs[0] == "capa" && stringArgs[1] == "psync2" {
 		return &token.OKToken, nil
 	}
-	if stringArgs[1] != "*" {
-		return nil, fmt.Errorf("not implemented yet")
+	if stringArgs[0] == "getack" && stringArgs[1] == "*" {
+		return &token.Token{
+			Type: token.ArrayType,
+			NestedValue: []*token.Token{
+				{Type: token.SimpleStringType, SimpleValue: "REPLCONF"},
+				{Type: token.SimpleStringType, SimpleValue: "ACK"},
+				{Type: token.SimpleStringType, SimpleValue: strconv.Itoa(repl.BytesProcessed)},
+			},
+		}, nil
 	}
-	return &token.Token{
-		Type: token.ArrayType,
-		NestedValue: []*token.Token{
-			{Type: token.SimpleStringType, SimpleValue: "REPLCONF"},
-			{Type: token.SimpleStringType, SimpleValue: "ACK"},
-			{Type: token.SimpleStringType, SimpleValue: strconv.Itoa(repl.BytesProcessed)},
-		},
-	}, nil
+	if stringArgs[0] == "ack" {
+		followerAddress, ok := ctx.Value("address").(string)
+		if !ok {
+			return nil, fmt.Errorf("unable to find address from context")
+		}
+		followerAddressSplit := strings.Split(followerAddress, ":")
+		followerPort, err := strconv.Atoi(followerAddressSplit[len(followerAddressSplit)-1])
+		if err != nil {
+			return nil, fmt.Errorf("unable to get port from context: %v", err)
+		}
+		err = repl.followerCounter.AddRespondedFollower(followerPort)
+		return nil, err
+	}
+	return nil, fmt.Errorf("not implemented yet")
 }
 
 func (repl *Replicator) RespondToWait(ctx context.Context, args []any) (*token.Token, error) {
@@ -82,11 +95,6 @@ func (repl *Replicator) RespondToWait(ctx context.Context, args []any) (*token.T
 	if numReplicas == 0 {
 		return &token.Token{Type: token.IntegerType, SimpleValue: "0"}, nil
 	}
-	success := repl.startBlock()
-	if !success {
-		return nil, fmt.Errorf("unable to start block for replicator")
-	}
-	defer repl.endBlock()
 	res, err := repl.countAckFromFollowers(numReplicas, timeout)
 	if err != nil {
 		return nil, err
@@ -95,6 +103,8 @@ func (repl *Replicator) RespondToWait(ctx context.Context, args []any) (*token.T
 }
 
 func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (int, error) {
+	repl.followerCounter.StartBlock()
+	defer repl.followerCounter.EndBlock()
 	askToken := &token.Token{
 		Type: token.ArrayType,
 		NestedValue: []*token.Token{
@@ -106,12 +116,11 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 	message := askToken.EncodedString()
 	count := 0
 	errs := make(map[int]error)
-	addChannel, doneChannel := make(chan int), make(chan bool)
-	checkDone := func(add chan int, done chan bool) {
-		defer close(add)
+	doneChannel := make(chan bool)
+	checkDone := func(done chan bool) {
 		var ok bool
 		for {
-			_, ok = <-add
+			_, ok = <-repl.followerCounter.portChannel
 			if !ok {
 				break
 			}
@@ -122,9 +131,9 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 			}
 		}
 	}
-	go checkDone(addChannel, doneChannel)
+	go checkDone(doneChannel)
 	respond := func(port int, conn *net.TCPConn) {
-		err := repl.getAckFromFollower(conn, timeoutSeconds, message, addChannel)
+		_, err := conn.Write([]byte(message))
 		if err != nil {
 			errs[port] = err
 		}
@@ -145,46 +154,5 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutSeconds int) (
 	for port, e := range errs {
 		errorMessage += fmt.Sprintf("\n%04d: %v", port, e)
 	}
-	return count, fmt.Errorf(errorMessage)
-}
-
-func (repl *Replicator) getAckFromFollower(conn *net.TCPConn, timeoutSeconds int, message string, addChannel chan int) error {
-	defer conn.SetReadDeadline(time.Time{})
-	data := []byte(message)
-	_, err := conn.Write(data)
-	if err != nil {
-		return err
-	}
-	errCh := make(chan error)
-	go func() {
-		response := make([]byte, 1024)
-		n, err := conn.Read(response)
-		response = response[:n]
-		if err != nil {
-			errCh <- err
-			return
-		}
-		resTokens, err := token.ParseInput(string(response))
-		if err != nil {
-			errCh <- err
-			return
-		}
-		if len(resTokens) != 1 {
-			errCh <- fmt.Errorf("expected 1 token, got %d", len(resTokens))
-			return
-		}
-		x, isInt := (resTokens[0].Value()).(int)
-		if !isInt {
-			errCh <- fmt.Errorf("returned response isn't an integer")
-			return
-		}
-		errCh <- nil
-		addChannel <- x
-	}()
-	select {
-	case resErr := <-errCh:
-		return resErr
-	case <-time.After(time.Second * time.Duration(timeoutSeconds)):
-		return nil
-	}
+	return 0, fmt.Errorf(errorMessage)
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
@@ -20,7 +19,7 @@ func runTokens(ctx context.Context, tokens []*token.Token) ([]*token.Token, erro
 	}
 	res := make([]*token.Token, 0, len(tokens)/2)
 	for len(tokens) > 0 && tokens[0].Type == token.ArrayType {
-		log.Println("processing", tokens[0].Value())
+		logger.Debug(fmt.Sprintf("processing %v", tokens[0].Value()))
 		subResult, err := runTokensSingleCommand(ctx, tokens[0].NestedValue)
 		if err != nil {
 			res = append(res, token.TokeniseError(err))
@@ -33,7 +32,7 @@ func runTokens(ctx context.Context, tokens []*token.Token) ([]*token.Token, erro
 	if len(tokens) == 0 {
 		return res, nil
 	}
-	log.Println("processing", tokens)
+	logger.Debug(fmt.Sprintf("processing %v", tokens))
 	finalRes, err := runTokensSingleCommand(ctx, tokens)
 	if err != nil {
 		res = append(res, token.TokeniseError(err))

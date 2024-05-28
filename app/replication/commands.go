@@ -97,7 +97,9 @@ func (repl *Replicator) RespondToWait(ctx context.Context, args []any) (*token.T
 	if numReplicas == 0 {
 		return &token.Token{Type: token.IntegerType, SimpleValue: "0"}, nil
 	}
+	repl.logger.Debugf("Start getting ACKs from followers")
 	res, err := repl.countAckFromFollowers(numReplicas, timeout)
+	repl.logger.Debugf("Finished count ACKs, got %d with errs %v", res, err)
 	if err != nil {
 		return nil, err
 	}
@@ -117,23 +119,25 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutMilliseconds i
 	}
 	message := askToken.EncodedString()
 	errs := make(map[int]error)
+
 	doneChannel := make(chan bool)
 	defer close(doneChannel)
-	count := 0
-	go func() {
-		for repl.followerCounter.Locked() {
-			port, ok := <-repl.followerCounter.portChannel
-			if !ok {
-				break
+	if timeoutMilliseconds == 0 {
+		go func() {
+			for repl.followerCounter.Locked() {
+				port, ok := <-repl.followerCounter.portChannel
+				if !ok {
+					break
+				}
+				repl.logger.Debug(fmt.Sprintf("Received ack from port %v\n", port))
+				count := repl.followerCounter.NumRespondedFollowers()
+				if count >= numReplicas || count == len(repl.followerConnections) {
+					doneChannel <- true
+					break
+				}
 			}
-			repl.logger.Debug(fmt.Sprintf("Received ack from port %v\n", port))
-			count = repl.followerCounter.NumRespondedFollowers()
-			if count >= numReplicas || count == len(repl.followerConnections) {
-				doneChannel <- true
-				break
-			}
-		}
-	}()
+		}()
+	}
 	respond := func(port int, conn *net.TCPConn) {
 		repl.logger.Debug(fmt.Sprintf("[follower:%04d] asking ACK from follower\n", port))
 		_, err := conn.Write([]byte(message))
@@ -146,14 +150,18 @@ func (repl *Replicator) countAckFromFollowers(numReplicas, timeoutMilliseconds i
 	for port, conn := range repl.followerConnections {
 		go respond(port, conn)
 	}
-	select {
-	case <-doneChannel:
-		repl.logger.Debug("Heard back from sufficient (or all) replicas before timeout")
-	case <-time.After(time.Millisecond * time.Duration(timeoutMilliseconds)):
-		repl.logger.Debug("Haven't got enough replies but shutting early due to timeout")
+	if timeoutMilliseconds == 0 {
+		repl.logger.Debug("No timeout specified, so waiting to hear from enough replicas")
+		<-doneChannel
+		repl.logger.Debug("Heard back from sufficient (or all) replicas")
+	} else {
+		repl.logger.Debugf("Timeout specified, so sleeping for %dms", timeoutMilliseconds)
+		time.Sleep(time.Millisecond * time.Duration(timeoutMilliseconds))
+		repl.logger.Debug("Timeout ended")
 	}
+	repl.logger.Debugf("errors: %v", errs)
 	if len(errs) == 0 {
-		return count, nil
+		return repl.followerCounter.NumRespondedFollowers(), nil
 	}
 	errorMessage := "Encountered these errors when waiting for followers:"
 	for port, e := range errs {

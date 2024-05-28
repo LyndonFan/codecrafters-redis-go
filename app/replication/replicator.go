@@ -57,11 +57,10 @@ func (r Replicator) InfoMap() map[string]string {
 	}
 }
 
-func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, error) {
+func GetReplicator(logger *customLogger.CustomLogger, port int, masterHost, masterPortString string) (*Replicator, error) {
 	id := randomID()
 	connMap := make(map[int]*net.TCPConn)
 	lock := &followerCounter{}
-	logger := customLogger.NewLogger(port, customLogger.LOG_LEVEL_INFO)
 	if masterHost == "" && masterPortString == "" {
 		return &Replicator{
 			ID:                  id,

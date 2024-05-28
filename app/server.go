@@ -18,7 +18,7 @@ import (
 
 var port int
 
-const logLevel customLogger.LogLevel = customLogger.LOG_LEVEL_INFO
+const logLevel customLogger.LogLevel = customLogger.LOG_LEVEL_DEBUG
 
 var logger *customLogger.CustomLogger
 var repl *replication.Replicator
@@ -39,9 +39,9 @@ func init() {
 		replHost, replPortString = parts[0], parts[1]
 	}
 	if replHost != "" && replPortString != "" {
-		repl, err = replication.GetReplicator(port, replHost, replPortString)
+		repl, err = replication.GetReplicator(logger, port, replHost, replPortString)
 	} else {
-		repl, err = replication.GetReplicator(port, "", "")
+		repl, err = replication.GetReplicator(logger, port, "", "")
 	}
 	if err != nil {
 		logger.Errorf("Error: %v", err)

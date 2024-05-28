@@ -5,24 +5,27 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	customLogger "github.com/codecrafters-io/redis-starter-go/app/logger"
 	"github.com/codecrafters-io/redis-starter-go/app/replication"
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 var port int
 
+const logLevel customLogger.LogLevel = customLogger.LOG_LEVEL_INFO
+
+var logger *customLogger.CustomLogger
 var repl *replication.Replicator
 
 func init() {
 	flag.IntVar(&port, "port", 6379, "port to listen to")
-	log.SetPrefix(fmt.Sprintf("[localhost:%4d] ", port))
+	logger = customLogger.NewLogger(port, logLevel)
 	var replHost string
 	flag.StringVar(&replHost, "replicaof", "", "if specified, the host and port of its master. Works with `--replicaof HOST PORT` or `--replicaof \"HOST PORT\"`")
 	flag.Parse()
@@ -41,27 +44,26 @@ func init() {
 		repl, err = replication.GetReplicator(port, "", "")
 	}
 	if err != nil {
-		log.Printf("Error: %v\n", err)
+		logger.Errorf("Error: %v", err)
 		os.Exit(1)
 	}
 }
 
 func main() {
-	log.Printf("Replication info: %v\n", repl)
-	log.Println("Logs from your program will appear here!")
+	logger.Debugf("Replication info: %v\n", repl)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		log.Printf("Failed to bind to port %d\n", port)
+		logger.Errorf("Failed to bind to port %d\n", port)
 		os.Exit(1)
 	}
 	defer listener.Close()
 	mainContext := context.Background()
 	go func() {
 		masterConn, remainingResponse, err := repl.HandshakeWithMaster()
-		log.Printf("Handshake results: %v, \"%s\", %v\n", masterConn, strings.ReplaceAll(remainingResponse, token.TERMINATOR, "\\r\\n"), err)
+		logger.Debugf("Handshake results: %v, \"%s\", %v\n", masterConn, strings.ReplaceAll(remainingResponse, token.TERMINATOR, "\\r\\n"), err)
 		if err != nil {
-			log.Printf("Error: %v\n", err)
+			logger.Errorf("Error: %v", err)
 			os.Exit(1)
 		}
 		if masterConn != nil {
@@ -77,7 +79,7 @@ func main() {
 		}
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("Error: ", err.Error())
+			logger.Errorf("Error:  %v", err.Error())
 			continue
 		}
 		ctx := context.WithValue(mainContext, "fromMaster", true)
@@ -87,20 +89,20 @@ func main() {
 }
 
 func handleConnection(ctx context.Context, conn net.Conn, startingResponse string, fromMaster bool) {
-	log.Printf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
+	logger.Debugf("%v: %v received connection from %v\n", fromMaster, conn.LocalAddr().String(), conn.RemoteAddr().String())
 	connRemoteParts := strings.Split(conn.RemoteAddr().String(), ":")
 	connPortString := connRemoteParts[len(connRemoteParts)-1]
 	connPort, err := strconv.Atoi(connPortString)
 	if err != nil {
-		log.Printf("unable to extract port from %s: %v", connPortString, err)
+		logger.Errorf("unable to extract port from %s: %v", connPortString, err)
 		return
 	}
 	printCheckMaster := func() {
-		log.Printf("port=%4d, fromMaster=%v, isFollower=%v\n", connPort, fromMaster, connPort == repl.MasterPort)
+		logger.Debugf("port=%4d, fromMaster=%v, isFollower=%v\n", connPort, fromMaster, connPort == repl.MasterPort)
 	}
 	printCheckMaster()
 	if !fromMaster && connPort == repl.MasterPort {
-		log.Println("leave connection to be handled by masterConn")
+		logger.Debug("leave connection to be handled by masterConn")
 		return
 	}
 	var data []byte
@@ -119,9 +121,9 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 		data = data[:dataSize]
 		if err != nil && !(startingResponse != "" && os.IsTimeout(err)) {
 			if err == io.EOF {
-				log.Println("End of file reached")
+				logger.Warn("End of file reached")
 			} else {
-				log.Println("Error reading from connection: ", err.Error())
+				logger.Errorf("Error reading from connection:  %v", err.Error())
 			}
 			break
 		}
@@ -130,7 +132,7 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 			startingResponse = ""
 			conn.SetReadDeadline(time.Time{}) // remove timeout
 		}
-		log.Println("Received: ", strings.ReplaceAll(string(data), token.TERMINATOR, "\\r\\n"))
+		logger.Debugf("Received:  %v", strings.ReplaceAll(string(data), token.TERMINATOR, "\\r\\n"))
 
 		// process data
 		err = repl.HandshakeWithFollower(conn, data)
@@ -141,33 +143,32 @@ func handleConnection(ctx context.Context, conn net.Conn, startingResponse strin
 		tokens, err := token.ParseInput(string(data))
 		var responses []*token.Token
 		if err != nil {
-			err = fmt.Errorf("error parsing input: %v", err)
-			log.Println(err)
+			logger.Errorf("error parsing input: %v", err)
 			responses = []*token.Token{token.TokeniseError(err)}
 		} else {
-			log.Println("Tokens:")
+			logger.Debug("Tokens:")
 			for _, t := range tokens {
-				log.Println(*t)
+				logger.Debugf("%v", *t)
 			}
 			responses, err = runTokens(ctx, tokens)
 			if err != nil {
-				log.Println(err)
+				logger.Error(err.Error())
 				responses = []*token.Token{token.TokeniseError(err)}
 			}
 		}
 		for _, response := range responses {
-			log.Println("Response: ", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
+			logger.Debugf("Response:  %v", strings.ReplaceAll(response.EncodedString(), token.TERMINATOR, "\\r\\n"))
 			if response.EncodedString() == "" {
-				log.Println("Nothing to write, skipping")
+				logger.Warn("Nothing to write, skipping")
 				continue
 			}
 			// TODO: patch this workaround?
 			if fromMaster && !strings.Contains(response.EncodedString(), "ACK\r\n") {
-				log.Println("Not sending response to master")
+				logger.Warn("Not sending response to master")
 			} else {
 				_, err = conn.Write([]byte(response.EncodedString()))
 				if err != nil {
-					log.Println("Error writing to connection: ", err.Error())
+					logger.Errorf("Error writing to connection:  %v", err.Error())
 					break
 				}
 			}

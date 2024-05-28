@@ -2,12 +2,11 @@ package replication
 
 import (
 	"fmt"
-	"log/slog"
 	"math/rand"
 	"net"
 	"strconv"
 
-	"github.com/codecrafters-io/redis-starter-go/app/logger"
+	customLogger "github.com/codecrafters-io/redis-starter-go/app/logger"
 )
 
 type Replicator struct {
@@ -20,7 +19,7 @@ type Replicator struct {
 	BytesProcessed      int
 	followerConnections map[int]*net.TCPConn
 	followerCounter     *followerCounter
-	logger              *slog.Logger
+	logger              *customLogger.CustomLogger
 }
 
 func (r Replicator) String() string {
@@ -62,7 +61,7 @@ func GetReplicator(port int, masterHost, masterPortString string) (*Replicator, 
 	id := randomID()
 	connMap := make(map[int]*net.TCPConn)
 	lock := &followerCounter{}
-	logger := logger.NewLogger(port)
+	logger := customLogger.NewLogger(port, customLogger.LOG_LEVEL_INFO)
 	if masterHost == "" && masterPortString == "" {
 		return &Replicator{
 			ID:                  id,

@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/token"
 )
 
 func runCommand(ctx context.Context, commandName string, args []any) (*token.Token, error) {
-	log.Println(strings.ToLower(commandName), args)
+	logger.Debugf("%s %v", strings.ToLower(commandName), args)
 	var err error
 	reconstructedToken, err := reconstructCommandToken(commandName, args)
 	if err != nil {

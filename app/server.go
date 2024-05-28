@@ -18,7 +18,7 @@ import (
 
 var port int
 
-const logLevel customLogger.LogLevel = customLogger.LOG_LEVEL_INFO
+const logLevel customLogger.LogLevel = customLogger.LOG_LEVEL_DEBUG
 
 var logger *customLogger.CustomLogger
 var repl *replication.Replicator
